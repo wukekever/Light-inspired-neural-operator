@@ -1,8 +1,8 @@
 # tex, pdf and data files
 *.mat
-.pt
-.pdf
-.tex
+*.pt
+*.pdf
+*.tex
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
