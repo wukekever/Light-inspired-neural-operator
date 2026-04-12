@@ -1,11 +1,39 @@
-# project files
+# Training outputs
 outputs/
-logs/
-checkpoints/
-*.mat
+src/outputs/
+
+# Checkpoints
 *.pt
-*.pdf
-*.tex
+*.pth
+
+# Logs
+*.log
+*.txt
+
+# Large datasets (Darcy2D)
+src/datasets/Darcy2D/*.mat
+
+# Jupyter
+.ipynb_checkpoints/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+
+# LaTeX build artifacts
+*.aux
+*.log
+*.out
+*.toc
+*.synctex.gz
+
+# Keep source files
+!doc/*.tex
+!doc/*.pdf
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
