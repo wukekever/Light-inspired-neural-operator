@@ -1,14 +1,14 @@
+# data 
+*.mat
+
 # Training outputs
-outputs/
-src/outputs/
+src/outputs/logs/
+src/outputs/ckpts/
+*.txt
 
 # Checkpoints
 *.pt
 *.pth
-
-# Logs
-*.log
-*.txt
 
 # Large datasets (Darcy2D)
 src/datasets/Darcy2D/*.mat
@@ -26,14 +26,9 @@ Thumbs.db
 
 # LaTeX build artifacts
 *.aux
-*.log
 *.out
 *.toc
 *.synctex.gz
-
-# Keep source files
-!doc/*.tex
-!doc/*.pdf
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
