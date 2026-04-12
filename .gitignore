@@ -1,4 +1,7 @@
-# tex, pdf and data files
+# project files
+outputs/
+logs/
+checkpoints/
 *.mat
 *.pt
 *.pdf
