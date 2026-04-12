@@ -20,6 +20,7 @@ class ReflectionLayer(nn.Module):
         - only mixes the feature dimension M,
         - preserves spatial locality.
     """
+
     def __init__(self, num_features: int):
         super().__init__()
         self.v_proj = nn.Linear(num_features, num_features)
@@ -50,6 +51,7 @@ class RefractionLayer(nn.Module):
         - the transformation acts only on the feature dimension M,
         - no spatial interaction is introduced.
     """
+
     def __init__(self, num_features: int, rate_range: float = 0.25):
         super().__init__()
         self.v_proj = nn.Linear(num_features, num_features)
@@ -99,6 +101,7 @@ class ScatteringLayer(nn.Module):
         - content-dependent propagation,
         - distance-aware attenuation via relative positional bias.
     """
+
     def __init__(self, num_features: int, hidden_dim: int | None = None):
         super().__init__()
         self.num_features = num_features
@@ -115,7 +118,7 @@ class ScatteringLayer(nn.Module):
 
         # Scattering strength / dissipation factor.
         self.log_sigma = nn.Parameter(torch.tensor(-2.0))
-        self.scale = self.hidden_dim ** -0.5
+        self.scale = self.hidden_dim**-0.5
 
     @staticmethod
     def _build_coords(H: int, W: int, device, dtype) -> torch.Tensor:
@@ -123,7 +126,7 @@ class ScatteringLayer(nn.Module):
         xs = torch.linspace(0.0, 1.0, W, device=device, dtype=dtype)
         grid_y, grid_x = torch.meshgrid(ys, xs, indexing="ij")
         coords = torch.stack([grid_y, grid_x], dim=-1)  # [H, W, 2]
-        coords = coords.reshape(H * W, 2)               # [N, 2]
+        coords = coords.reshape(H * W, 2)  # [N, 2]
         return coords
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -145,21 +148,21 @@ class ScatteringLayer(nn.Module):
         logits = torch.einsum("bid,bjd->bij", q, k) * self.scale  # [B, N, N]
 
         # Relative positional bias based on squared Euclidean distance.
-        coords = self._build_coords(H, W, x.device, x.dtype)      # [N, 2]
-        rel = coords[:, None, :] - coords[None, :, :]             # [N, N, 2]
-        dist2 = (rel ** 2).sum(dim=-1)                            # [N, N]
+        coords = self._build_coords(H, W, x.device, x.dtype)  # [N, 2]
+        rel = coords[:, None, :] - coords[None, :, :]  # [N, N, 2]
+        dist2 = (rel**2).sum(dim=-1)  # [N, N]
 
         tau = F.softplus(self.log_tau)
-        pos_bias = -tau * dist2                                   # [N, N]
+        pos_bias = -tau * dist2  # [N, N]
 
-        logits = logits + pos_bias.unsqueeze(0)                   # [B, N, N]
+        logits = logits + pos_bias.unsqueeze(0)  # [B, N, N]
 
         # Stabilize softmax.
         logits = logits - logits.max(dim=-1, keepdim=True).values
-        K = F.softmax(logits, dim=-1)                             # [B, N, N]
+        K = F.softmax(logits, dim=-1)  # [B, N, N]
 
         # Spatial propagation.
-        y = torch.einsum("bij,bjm->bim", K, v)                    # [B, N, M]
+        y = torch.einsum("bij,bjm->bim", K, v)  # [B, N, M]
 
         sigma = self.log_sigma.exp()
         y = sigma * (y - x_flat)
@@ -179,6 +182,7 @@ class FeatureMLP(nn.Module):
         - enhances feature expressiveness,
         - does not introduce spatial coupling.
     """
+
     def __init__(self, num_features: int, expansion: int = 2):
         super().__init__()
         hidden = expansion * num_features
@@ -220,6 +224,7 @@ class LightEvolutionBlock(nn.Module):
         - feature transformation (optical analogy),
         - spatial interaction (kernel propagation).
     """
+
     def __init__(self, num_features: int):
         super().__init__()
         self.num_features = num_features
@@ -246,11 +251,11 @@ class LightEvolutionBlock(nn.Module):
         """
         h = self.norm1(x)
 
-        xr = self.reflection(h)   # feature-space transform
-        xt = self.refraction(h)   # feature-space transform
-        xs = self.scattering(h)   # spatial propagation
+        xr = self.reflection(h)  # feature-space transform
+        xt = self.refraction(h)  # feature-space transform
+        xs = self.scattering(h)  # spatial propagation
 
-        pooled = h.mean(dim=(1, 2))                    # [B, M]
+        pooled = h.mean(dim=(1, 2))  # [B, M]
         alpha = F.softmax(self.gate(pooled), dim=-1)  # [B, 3]
 
         a_r = alpha[:, 0].view(-1, 1, 1, 1)
@@ -278,6 +283,7 @@ class LiftingLayer(nn.Module):
         - embeds raw inputs into a latent feature space,
         - does not introduce spatial coupling.
     """
+
     def __init__(self, in_channels: int, num_features: int):
         super().__init__()
         self.linear = nn.Linear(in_channels, num_features)
@@ -298,6 +304,7 @@ class ProjectionLayer(nn.Module):
 
     This layer maps the learned latent representation back to the target space.
     """
+
     def __init__(self, num_features: int, out_channels: int):
         super().__init__()
         self.linear = nn.Linear(num_features, out_channels)
@@ -323,6 +330,7 @@ class LightNeuralOperator2D(nn.Module):
         a hybrid operator combining feature-space transformations and
         non-local spatial kernel propagation.
     """
+
     def __init__(
         self,
         in_channels: int,
@@ -336,10 +344,9 @@ class LightNeuralOperator2D(nn.Module):
 
         self.lifting = LiftingLayer(in_channels, num_features)
 
-        self.blocks = nn.ModuleList([
-            LightEvolutionBlock(num_features)
-            for _ in range(depth)
-        ])
+        self.blocks = nn.ModuleList(
+            [LightEvolutionBlock(num_features) for _ in range(depth)]
+        )
 
         self.projection = ProjectionLayer(num_features, out_channels)
 
@@ -354,16 +361,3 @@ class LightNeuralOperator2D(nn.Module):
 
         y = self.projection(x)  # [B, H, W, out_channels]
         return y
-
-
-if __name__ == "__main__":
-    model = LightNeuralOperator2D(
-        in_channels=3,
-        out_channels=1,
-        num_features=16,
-        depth=2,
-    )
-
-    x = torch.randn(2, 32, 32, 3)
-    y = model(x)
-    print(y.shape)  # torch.Size([2, 32, 32, 1])

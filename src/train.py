@@ -336,7 +336,3 @@ def main() -> None:
     print(f"Training finished. Best validation relative L2 = {best_val_rel:.6e}")
     print(f"Best checkpoint saved to: {best_ckpt_path}")
     print("=" * 80)
-
-
-if __name__ == "__main__":
-    main()
