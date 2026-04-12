@@ -43,7 +43,7 @@ def get_parser():
         default="./datasets/Darcy2D/piececonst_r241_N1024_smooth1.mat",
     )
     parser.add_argument("--output-dir", type=str, default="./outputs")
-    parser.add_argument("--tag", type=str, default=None)
+    parser.add_argument("--tag", type=str, default="version_1")
 
     parser.add_argument("--target-size", type=int, nargs=2, default=[32, 32])
     parser.add_argument("--n-train", type=int, default=800)
@@ -58,7 +58,7 @@ def get_parser():
     parser.add_argument("--num-features", type=int, default=16)
     parser.add_argument("--depth", type=int, default=2)
 
-    parser.add_argument("--epochs", type=int, default=200)
+    parser.add_argument("--epochs", type=int, default=50)
     parser.add_argument("--lr", type=float, default=1e-3)
     parser.add_argument("--weight-decay", type=float, default=1e-5)
     parser.add_argument("--grad-clip", type=float, default=1.0)
@@ -77,7 +77,6 @@ def get_parser():
 def build_run_dir(args) -> str:
     """
     Build the experiment directory:
-
         output_dir/YYYY-MM-DD_HH-MM-SS_light_neural_operator[_tag]
     """
     run_name = datetime.datetime.now().strftime(
