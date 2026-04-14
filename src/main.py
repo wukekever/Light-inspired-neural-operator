@@ -42,31 +42,41 @@ def get_parser():
         type=str,
         default="./datasets/Darcy2D/piececonst_r241_N1024_smooth1.mat",
     )
-    parser.add_argument("--output-dir", type=str, default="./outputs")
+    parser.add_argument("--output-dir", type=str, default="../outputs")
     parser.add_argument("--tag", type=str, default="version_1")
 
-    parser.add_argument("--target-size", type=int, nargs=2, default=[32, 32])
+    parser.add_argument("--target-size", type=int, nargs=2, default=[128, 128])
     parser.add_argument("--n-train", type=int, default=800)
     parser.add_argument("--n-val", type=int, default=224)
     parser.add_argument("--no-coord", action="store_true")
 
-    parser.add_argument("--batch-size", type=int, default=4)
+    parser.add_argument("--batch-size", type=int, default=8)
     parser.add_argument("--num-workers", type=int, default=2)
 
     parser.add_argument("--in-channels", type=int, default=3)
     parser.add_argument("--out-channels", type=int, default=1)
-    parser.add_argument("--num-features", type=int, default=16)
-    parser.add_argument("--depth", type=int, default=2)
+    parser.add_argument("--num-features", type=int, default=128)
+    parser.add_argument("--depth", type=int, default=4)
 
-    parser.add_argument("--epochs", type=int, default=50)
+    parser.add_argument("--epochs", type=int, default=500)
     parser.add_argument("--lr", type=float, default=1e-3)
-    parser.add_argument("--weight-decay", type=float, default=1e-5)
-    parser.add_argument("--grad-clip", type=float, default=1.0)
+    parser.add_argument(
+        "--weight-decay", type=float, default=1e-5
+    )  # L2 regularization strength
+    parser.add_argument(
+        "--grad-clip", type=float, default=1.0
+    )  # max norm for gradient clipping, set to None to disable
 
-    parser.add_argument("--scheduler-step-size", type=int, default=50)
-    parser.add_argument("--scheduler-gamma", type=float, default=0.5)
+    parser.add_argument(
+        "--scheduler-step-size", type=int, default=50
+    )  # decay learning rate every N "epochs"
+    parser.add_argument(
+        "--scheduler-gamma", type=float, default=0.5
+    )  # decay learning rate by multiplying with this factor
 
-    parser.add_argument("--log-interval", type=int, default=20)
+    parser.add_argument(
+        "--log-interval", type=int, default=10
+    )  # print logs every N steps
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument(
         "--device", type=str, default="cuda" if torch.cuda.is_available() else "cpu"
@@ -242,7 +252,7 @@ def main():
 
             mse_loss = mse_loss_fn(pred, y)
             rel_loss = rel_loss_fn(pred, y)
-            loss = mse_loss + 0.1 * rel_loss
+            loss = 1.0 * mse_loss + 1.0 * rel_loss
 
             loss.backward()
 
@@ -288,12 +298,14 @@ def main():
         )
 
         epoch_time = time.time() - epoch_start
+        current_lr = optimizer.param_groups[0]["lr"]
         logger.info(
             f"Epoch [{epoch + 1:4d}/{args.epochs:4d}] - "
             f"TrainLoss: {loss_meter.avg:.4e} "
             f"TrainError: {error_meter.avg:.4e} "
             f"ValLoss: {val_metrics['loss']:.4e} "
             f"ValError: {val_metrics['rel_l2']:.4e} "
+            f"LR: {current_lr:.4e} "
             f"EpochTime: {str(datetime.timedelta(seconds=int(epoch_time)))}"
         )
 

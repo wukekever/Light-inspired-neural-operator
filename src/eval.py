@@ -1,21 +1,51 @@
 from __future__ import annotations
 
+import argparse
 import matplotlib.pyplot as plt
 import torch
+from datetime import datetime
 
 from datasets.darcy2d import Darcy2DDataset, build_darcy2d_splits
 from modules.model import LightNeuralOperator2D
 from utils import RelativeL2Loss, resolve_mat_path
+from termcolor import colored
+
+
+def get_timestamp():
+    """Get current timestamp in format YYYY-MM-DD HH:MM:SS"""
+    return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+
+def log_info(message: str, username: str = "wukekever") -> None:
+    """Print formatted log message with colored output"""
+    timestamp = get_timestamp()
+    formatted_msg = (
+        colored(f"[⏳ {timestamp}]", "light_cyan")
+        + colored(f"[🤖 {username}]", "blue")
+        + colored(f": {message}", "magenta")
+    )
+    print(formatted_msg)
 
 
 @torch.no_grad()
-def main() -> None:
-    ckpt_path = "./checkpoints/lightno_darcy2d_best.pt"
+def main(args) -> None:
+    ckpt_path = args.ckpt_path
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    ckpt = torch.load(ckpt_path, map_location=device)
-    cfg = ckpt["config"]
+    log_info(f"Loading checkpoint from {ckpt_path}")
 
+    ckpt = torch.load(ckpt_path, map_location=device)
+    cfg = ckpt.get("config") or ckpt.get("args")
+    if cfg is None:
+        raise KeyError(
+            "Checkpoint does not contain 'config' or 'args'; cannot infer dataset/model settings."
+        )
+
+    use_coord = cfg.get("use_coord")
+    if use_coord is None:
+        use_coord = not cfg.get("no_coord", False)
+
+    log_info("Building dataset splits")
     split = build_darcy2d_splits(
         mat_path=resolve_mat_path(cfg["data_path"]),
         target_size=tuple(cfg["target_size"])
@@ -23,12 +53,13 @@ def main() -> None:
         else None,
         n_train=cfg["n_train"],
         n_val=cfg["n_val"],
-        use_coord=cfg["use_coord"],
-        normalize_x=cfg["normalize_x"],
-        normalize_y=cfg["normalize_y"],
+        use_coord=use_coord,
+        normalize_x=cfg.get("normalize_x", True),
+        normalize_y=cfg.get("normalize_y", True),
         seed=cfg["seed"],
     )
 
+    log_info("Initializing model")
     model = LightNeuralOperator2D(
         in_channels=cfg["in_channels"],
         out_channels=cfg["out_channels"],
@@ -38,7 +69,6 @@ def main() -> None:
     model.load_state_dict(ckpt["model_state_dict"])
     model.eval()
 
-    # Restore normalizer states; keep mean/std on CPU so decode(.cpu()) matches plotting.
     split.x_normalizer.load_state_dict(ckpt["x_normalizer"])
     split.y_normalizer.load_state_dict(ckpt["y_normalizer"])
     for normalizer in (split.x_normalizer, split.y_normalizer):
@@ -47,18 +77,29 @@ def main() -> None:
 
     val_set = Darcy2DDataset(split.val_x, split.val_y)
 
-    index = 1
+    index = args.index
+    log_info(f"Evaluating sample index {index}")
     x, y = val_set[index]
     x = x.unsqueeze(0).to(device)
     y = y.unsqueeze(0).to(device)
 
-    pred = model(x)
+    try:
+        pred = model(x)
+    except RuntimeError as exc:
+        if device.type == "cuda" and "out of memory" in str(exc).lower():
+            log_info("CUDA out of memory; retrying on CPU")
+            torch.cuda.empty_cache()
+            device = torch.device("cpu")
+            model = model.to(device)
+            x = x.to(device)
+            y = y.to(device)
+            pred = model(x)
+        else:
+            raise
 
-    # Compute normalized-space error
     rel_loss_fn = RelativeL2Loss()
     rel_err_norm = rel_loss_fn(pred, y).item()
 
-    # Decode target / prediction back to physical scale (normalizer stats live on CPU).
     y_phys = split.y_normalizer.decode(y.cpu())
     pred_phys = split.y_normalizer.decode(pred.cpu())
 
@@ -69,7 +110,7 @@ def main() -> None:
     pred_field = pred_phys[0, ..., 0]
     err_field = pred_field - target_field
 
-    print(f"Relative L2 error in normalized space: {rel_err_norm:.6e}")
+    log_info(f"Relative L2 error in normalized space: {rel_err_norm:.6e}")
 
     fig = plt.figure(figsize=(16, 4))
 
@@ -94,8 +135,29 @@ def main() -> None:
     plt.colorbar(im4, ax=ax4, fraction=0.046, pad=0.04)
 
     plt.tight_layout()
-    plt.show()
+    plt.savefig(args.output_path, dpi=150, bbox_inches="tight")
+    log_info(f"Evaluation plot saved to {args.output_path}")
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(description="Evaluate Light Neural Operator model")
+    parser.add_argument(
+        "--ckpt-path",
+        type=str,
+        required=True,
+        help="Path to checkpoint file",
+    )
+    parser.add_argument(
+        "--index",
+        type=int,
+        required=True,
+        help="Index of validation sample to evaluate",
+    )
+    parser.add_argument(
+        "--output-path",
+        type=str,
+        default="evaluation_results.png",
+        help="Path to save evaluation plot",
+    )
+    args = parser.parse_args()
+    main(args)
