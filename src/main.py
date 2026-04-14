@@ -45,18 +45,18 @@ def get_parser():
     parser.add_argument("--output-dir", type=str, default="../outputs")
     parser.add_argument("--tag", type=str, default="version_1")
 
-    parser.add_argument("--target-size", type=int, nargs=2, default=[128, 128])
+    parser.add_argument("--target-size", type=int, nargs=2, default=[32, 32])
     parser.add_argument("--n-train", type=int, default=800)
     parser.add_argument("--n-val", type=int, default=224)
     parser.add_argument("--no-coord", action="store_true")
 
-    parser.add_argument("--batch-size", type=int, default=8)
+    parser.add_argument("--batch-size", type=int, default=4)
     parser.add_argument("--num-workers", type=int, default=2)
 
     parser.add_argument("--in-channels", type=int, default=3)
     parser.add_argument("--out-channels", type=int, default=1)
-    parser.add_argument("--num-features", type=int, default=128)
-    parser.add_argument("--depth", type=int, default=4)
+    parser.add_argument("--num-features", type=int, default=64)
+    parser.add_argument("--depth", type=int, default=2)
 
     parser.add_argument("--epochs", type=int, default=500)
     parser.add_argument("--lr", type=float, default=1e-3)
@@ -68,14 +68,14 @@ def get_parser():
     )  # max norm for gradient clipping, set to None to disable
 
     parser.add_argument(
-        "--scheduler-step-size", type=int, default=50
+        "--scheduler-step-size", type=int, default=5
     )  # decay learning rate every N "epochs"
     parser.add_argument(
-        "--scheduler-gamma", type=float, default=0.5
+        "--scheduler-gamma", type=float, default=0.96
     )  # decay learning rate by multiplying with this factor
 
     parser.add_argument(
-        "--log-interval", type=int, default=10
+        "--log-interval", type=int, default=50
     )  # print logs every N steps
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument(

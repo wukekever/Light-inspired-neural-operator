@@ -170,6 +170,128 @@ class ScatteringLayer(nn.Module):
         return y.reshape(B, H, W, M)
 
 
+class EfficientScatteringLayer(nn.Module):
+    """
+    Efficient spatial scattering operator with linear complexity in N = H * W.
+
+    Input:
+        x: [B, H, W, M]
+
+    Design rationale:
+        The original implementation realizes the scattering kernel
+
+            K_ij = softmax_j(q_i^T k_j + b_ij),
+
+        which is faithful to the formulation in the method note, but requires
+        O(N^2) memory and compute. Here we replace it with a linear-attention
+        kernel approximation and add a lightweight local branch to preserve the
+        locality prior induced by the Gaussian positional bias.
+
+    The resulting update keeps the same operator-level interpretation:
+
+        S(x)_i = sigma * ( weighted spatial average - x_i ),
+
+    but the weighted average is computed in O(N) with respect to the number of
+    spatial points.
+    """
+
+    def __init__(
+        self,
+        num_features: int,
+        hidden_dim: int | None = None,
+        eps: float = 1e-6,
+    ):
+        super().__init__()
+        self.num_features = num_features
+        self.hidden_dim = hidden_dim or num_features
+        self.eps = eps
+
+        # Content-dependent projections for the linearized kernel.
+        self.q_proj = nn.Linear(num_features, self.hidden_dim, bias=False)
+        self.k_proj = nn.Linear(num_features, self.hidden_dim, bias=False)
+        self.v_proj = nn.Linear(num_features, num_features, bias=False)
+
+        # A small coordinate encoder injects absolute spatial information into
+        # the query/key construction without forming an O(N^2) bias matrix.
+        self.coord_mlp = nn.Sequential(
+            nn.Linear(2, self.hidden_dim),
+            nn.GELU(),
+            nn.Linear(self.hidden_dim, self.hidden_dim),
+        )
+
+        # Lightweight local propagation branch. This serves as a surrogate for
+        # the Gaussian locality prior in the original relative positional bias.
+        self.local_conv = nn.Conv2d(
+            num_features,
+            num_features,
+            kernel_size=3,
+            padding=1,
+            groups=num_features,
+            bias=False,
+        )
+        self.local_proj = nn.Linear(num_features, num_features, bias=False)
+
+        # Learnable mixing between global linear attention and local diffusion.
+        self.local_gate = nn.Parameter(torch.tensor(-1.0))
+
+        # Scattering strength / dissipation factor.
+        self.log_sigma = nn.Parameter(torch.tensor(-2.0))
+        self.scale = self.hidden_dim**-0.5
+
+    @staticmethod
+    def _build_coords(H: int, W: int, device, dtype) -> torch.Tensor:
+        ys = torch.linspace(0.0, 1.0, H, device=device, dtype=dtype)
+        xs = torch.linspace(0.0, 1.0, W, device=device, dtype=dtype)
+        grid_y, grid_x = torch.meshgrid(ys, xs, indexing="ij")
+        coords = torch.stack([grid_y, grid_x], dim=-1)  # [H, W, 2]
+        return coords.reshape(H * W, 2)  # [N, 2]
+
+    @staticmethod
+    def _feature_map(x: torch.Tensor) -> torch.Tensor:
+        # Positive feature map used in linear attention.
+        return F.elu(x) + 1.0
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """
+        x: [B, H, W, M]
+        """
+        B, H, W, M = x.shape
+        N = H * W
+
+        x_flat = x.reshape(B, N, M)  # [B, N, M]
+        v = self.v_proj(x_flat)  # [B, N, M]
+
+        coords = self._build_coords(H, W, x.device, x.dtype)  # [N, 2]
+        coord_feat = self.coord_mlp(coords).unsqueeze(0)  # [1, N, d]
+
+        q = self.q_proj(x_flat) * self.scale + coord_feat  # [B, N, d]
+        k = self.k_proj(x_flat) * self.scale + coord_feat  # [B, N, d]
+
+        q_phi = self._feature_map(q)  # [B, N, d]
+        k_phi = self._feature_map(k)  # [B, N, d]
+
+        # Linear attention:
+        #   y_i = (phi(q_i)^T sum_j phi(k_j) v_j) / (phi(q_i)^T sum_j phi(k_j))
+        kv = torch.einsum("bnd,bnm->bdm", k_phi, v)  # [B, d, M]
+        k_sum = k_phi.sum(dim=1)  # [B, d]
+
+        global_num = torch.einsum("bnd,bdm->bnm", q_phi, kv)  # [B, N, M]
+        global_den = torch.einsum("bnd,bd->bn", q_phi, k_sum)  # [B, N]
+        global_y = global_num / (global_den.unsqueeze(-1) + self.eps)
+
+        # Local branch: cheap spatial mixing to retain short-range propagation.
+        local_y = self.local_conv(x.permute(0, 3, 1, 2))  # [B, M, H, W]
+        local_y = local_y.permute(0, 2, 3, 1).reshape(B, N, M)  # [B, N, M]
+        local_y = self.local_proj(local_y)
+
+        beta = torch.sigmoid(self.local_gate)
+        y = (1.0 - beta) * global_y + beta * local_y
+
+        sigma = self.log_sigma.exp()
+        y = sigma * (y - x_flat)
+        return y.reshape(B, H, W, M)
+
+
 class FeatureMLP(nn.Module):
     """
     Pointwise nonlinear transformation on the latent feature dimension M.
@@ -234,7 +356,8 @@ class LightEvolutionBlock(nn.Module):
 
         self.reflection = ReflectionLayer(num_features)
         self.refraction = RefractionLayer(num_features)
-        self.scattering = ScatteringLayer(num_features)
+        # self.scattering = ScatteringLayer(num_features)
+        self.scattering = EfficientScatteringLayer(num_features)
 
         self.gate = nn.Sequential(
             nn.Linear(num_features, 2 * num_features),
