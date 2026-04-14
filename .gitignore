@@ -2,9 +2,11 @@
 *.mat
 
 # Training outputs
-src/outputs/logs/
-src/outputs/ckpts/
+outputs/
 *.txt
+
+# Visualizations
+*.png
 
 # Checkpoints
 *.pt
