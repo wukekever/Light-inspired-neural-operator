@@ -347,7 +347,7 @@ class LightEvolutionBlock(nn.Module):
         - spatial interaction (kernel propagation).
     """
 
-    def __init__(self, num_features: int):
+    def __init__(self, num_features: int, scattering_type="standard"):
         super().__init__()
         self.num_features = num_features
 
@@ -356,8 +356,10 @@ class LightEvolutionBlock(nn.Module):
 
         self.reflection = ReflectionLayer(num_features)
         self.refraction = RefractionLayer(num_features)
-        # self.scattering = ScatteringLayer(num_features)
-        self.scattering = EfficientScatteringLayer(num_features)
+        if scattering_type == "standard":
+            self.scattering = ScatteringLayer(num_features)
+        else:
+            self.scattering = EfficientScatteringLayer(num_features)
 
         self.gate = nn.Sequential(
             nn.Linear(num_features, 2 * num_features),
