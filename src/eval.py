@@ -30,7 +30,7 @@ def log_info(message: str, username: str = "wukekever") -> None:
 @torch.no_grad()
 def main(args) -> None:
     ckpt_path = args.ckpt_path
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = torch.device("cuda:3" if torch.cuda.is_available() else "cpu")
 
     log_info(f"Loading checkpoint from {ckpt_path}")
 

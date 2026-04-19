@@ -45,18 +45,18 @@ def get_parser():
     parser.add_argument("--output-dir", type=str, default="../outputs")
     parser.add_argument("--tag", type=str, default="version_1")
 
-    parser.add_argument("--target-size", type=int, nargs=2, default=[32, 32])
+    parser.add_argument("--target-size", type=int, nargs=2, default=[85, 85]) # downsample the data into 85 × 85 resolution 
     parser.add_argument("--n-train", type=int, default=800)
     parser.add_argument("--n-val", type=int, default=224)
     parser.add_argument("--no-coord", action="store_true")
 
-    parser.add_argument("--batch-size", type=int, default=4)
+    parser.add_argument("--batch-size", type=int, default=4) # batch size = 4 (Transolver)
     parser.add_argument("--num-workers", type=int, default=2)
 
     parser.add_argument("--in-channels", type=int, default=3)
     parser.add_argument("--out-channels", type=int, default=1)
-    parser.add_argument("--num-features", type=int, default=64)
-    parser.add_argument("--depth", type=int, default=2)
+    parser.add_argument("--num-features", type=int, default=128) # num of features = 128 (Transolver) 
+    parser.add_argument("--depth", type=int, default=8) # depth = 8 (Transolver) 
 
     parser.add_argument("--epochs", type=int, default=500)
     parser.add_argument("--lr", type=float, default=1e-3)
@@ -69,7 +69,7 @@ def get_parser():
 
     parser.add_argument(
         "--scheduler-step-size", type=int, default=5
-    )  # decay learning rate every N "epochs"
+    )  # decay learning rate every N "epochs" (epochs // scheduler_step_size = 100: 0.96^100 = 0.0176)
     parser.add_argument(
         "--scheduler-gamma", type=float, default=0.96
     )  # decay learning rate by multiplying with this factor
@@ -79,7 +79,7 @@ def get_parser():
     )  # print logs every N steps
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument(
-        "--device", type=str, default="cuda" if torch.cuda.is_available() else "cpu"
+        "--device", type=str, default="cuda:3" if torch.cuda.is_available() else "cpu"
     )
     return parser.parse_args()
 
