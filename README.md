@@ -45,6 +45,41 @@ Examples:
 ## 📁 Project Architecture
 ```bash
 tree
+.
+├── doc
+│   ├── light_inspired_neural_operator.pdf
+│   ├── method.tex
+│   └── rainbow_title.png
+├── make_title.py
+├── README.md
+├── requirements.txt
+├── scripts
+│   ├── download_burgers1d.sh
+│   ├── download_darcy2d.sh
+│   ├── run_eval_burgers1d.sh
+│   ├── run_eval_darcy2d.sh
+│   ├── run_train_burgers1d.sh
+│   └── run_train_darcy2d.sh
+└── src
+    ├── datasets
+    │   ├── Burgers1D
+    │   │   └── burgers_data_R10.mat
+    │   ├── burgers1d.py
+    │   ├── common.py
+    │   ├── Darcy2D
+    │   │   ├── piececonst_r241_N1024_smooth1.mat
+    │   │   └── piececonst_r241_N1024_smooth2.mat
+    │   ├── darcy2d.py
+    │   ├── data_infos.md
+    │   ├── datatest.ipynb
+    │   └── __init__.py
+    ├── eval.py
+    ├── logger.py
+    ├── modules
+    │   └── model.py
+    ├── run_burgers1d.py
+    ├── run_darcy2d.py
+    └── utils.py
 
 ```
 
