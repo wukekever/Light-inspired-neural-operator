@@ -9,8 +9,8 @@ import torch.nn as nn
 from torch.utils.data import DataLoader
 
 from logger import setup_logging
-from datasets.darcy2d import Darcy2DDataset, build_darcy2d_splits
-from modules.model import LightNeuralOperator2D
+from datasets.burgers1d import Burgers1DDataset, build_burgers1d_splits
+from modules.model import LightNeuralOperator1D
 from utils import set_seed, RelativeL2Loss
 
 
@@ -37,26 +37,39 @@ class Monitor:
 
 def get_parser():
     parser = argparse.ArgumentParser(description="Light-inspired Neural Operator")
+    parser.add_argument("--dataset_name", type=str, default="burgers1d")
     parser.add_argument(
         "--data-path",
         type=str,
-        default="./datasets/Darcy2D/piececonst_r241_N1024_smooth1.mat",
+        default="./datasets/Burgers1D/burgers_data_R10.mat",
     )
     parser.add_argument("--output-dir", type=str, default="../outputs")
     parser.add_argument("--tag", type=str, default="version_1")
 
-    parser.add_argument("--target-size", type=int, nargs=2, default=[85, 85]) # downsample the data into 85 × 85 resolution 
-    parser.add_argument("--n-train", type=int, default=800)
-    parser.add_argument("--n-val", type=int, default=224)
+    parser.add_argument(
+        "--target-size", type=int, nargs=1, default=256
+    )  # downsample the data into 256 resolution
+    parser.add_argument("--n-train", type=int, default=1600)
+    parser.add_argument("--n-val", type=int, default=448)
     parser.add_argument("--no-coord", action="store_true")
 
-    parser.add_argument("--batch-size", type=int, default=4) # batch size = 4 (Transolver)
+    parser.add_argument(
+        "--batch-size", type=int, default=4
+    )  # batch size = 4 (Transolver)
     parser.add_argument("--num-workers", type=int, default=2)
 
-    parser.add_argument("--in-channels", type=int, default=3)
+    parser.add_argument("--in-channels", type=int, default=2)  # coeff + x
     parser.add_argument("--out-channels", type=int, default=1)
-    parser.add_argument("--num-features", type=int, default=128) # num of features = 128 (Transolver) 
-    parser.add_argument("--depth", type=int, default=8) # depth = 8 (Transolver) 
+    parser.add_argument(
+        "--num-features", type=int, default=128
+    )  # num of features = 128 (Transolver)
+    parser.add_argument("--depth", type=int, default=8)  # depth = 8 (Transolver)
+    parser.add_argument(
+        "--scattering-type",
+        type=str,
+        default="standard",
+        choices=["efficient", "standard"],
+    )  # scattering type for the light-inspired layers, "efficient" uses the optimized implementation, while "standard" uses the original scattering transform
 
     parser.add_argument("--epochs", type=int, default=500)
     parser.add_argument("--lr", type=float, default=1e-3)
@@ -102,9 +115,9 @@ def build_run_dir(args) -> str:
 
 
 def build_loaders(args):
-    split = build_darcy2d_splits(
+    split = build_burgers1d_splits(
         mat_path=args.data_path,
-        target_size=tuple(args.target_size) if args.target_size is not None else None,
+        target_size=args.target_size,
         n_train=args.n_train,
         n_val=args.n_val,
         use_coord=not args.no_coord,
@@ -113,8 +126,8 @@ def build_loaders(args):
         seed=args.seed,
     )
 
-    train_set = Darcy2DDataset(split.train_x, split.train_y)
-    val_set = Darcy2DDataset(split.val_x, split.val_y)
+    train_set = Burgers1DDataset(split.train_x, split.train_y)
+    val_set = Burgers1DDataset(split.val_x, split.val_y)
 
     train_loader = DataLoader(
         train_set,
@@ -203,11 +216,13 @@ def main():
 
     split, train_loader, val_loader = build_loaders(args)
 
-    model = LightNeuralOperator2D(
+    # Burgers1D: in_channels = 2 (coeff + x), out_channels = 1 (solution)
+    model = LightNeuralOperator1D(
         in_channels=args.in_channels,
         out_channels=args.out_channels,
         num_features=args.num_features,
         depth=args.depth,
+        scattering_type=args.scattering_type,
     ).to(device)
 
     optimizer = torch.optim.AdamW(

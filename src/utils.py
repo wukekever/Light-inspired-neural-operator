@@ -8,15 +8,7 @@ import torch
 
 
 def resolve_mat_path(path_str: str) -> str:
-    """
-    Resolve a ``.mat`` path so training/eval work from repo root, ``src/``, or
-    another cwd.
-
-    Tries: relative/absolute as given from ``cwd``; then the same relative path
-    under ``src/`` (this file's directory) and repo root; finally
-    ``src/datasets/Darcy2D/<basename>`` so legacy paths like
-    ``./Darcy2D/piececonst_....mat`` still resolve to the bundled file.
-    """
+    """Resolve dataset .mat path from cwd, src, repo root, or bundled dataset dirs."""
     path = Path(path_str).expanduser()
     if path.is_absolute():
         if not path.is_file():
@@ -26,18 +18,24 @@ def resolve_mat_path(path_str: str) -> str:
     src_root = Path(__file__).resolve().parent
     repo_root = src_root.parent
     rel = Path(path_str)
-    roots = (Path.cwd(), src_root, repo_root)
     tried: list[str] = []
-    for root in roots:
+
+    for root in (Path.cwd(), src_root, repo_root):
         candidate = (root / rel).resolve()
         tried.append(str(candidate))
         if candidate.is_file():
             return str(candidate)
 
-    bundled = (src_root / "datasets" / "Darcy2D" / rel.name).resolve()
-    tried.append(str(bundled))
-    if bundled.is_file():
-        return str(bundled)
+    bundled_dirs = [
+        src_root / "datasets" / "Darcy2D",
+        src_root / "datasets" / "Burgers1D",
+        src_root / "datasets",
+    ]
+    for base in bundled_dirs:
+        candidate = (base / rel.name).resolve()
+        tried.append(str(candidate))
+        if candidate.is_file():
+            return str(candidate)
 
     raise FileNotFoundError(
         f"MAT file not found: {path_str!r}\nTried:\n  " + "\n  ".join(tried)
@@ -48,6 +46,7 @@ def set_seed(seed: int = 42) -> None:
     """
     Set random seeds for reproducibility.
     """
+
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
@@ -74,9 +73,7 @@ class AverageMeter:
 
     @property
     def avg(self) -> float:
-        if self.count == 0:
-            return 0.0
-        return self.sum / self.count
+        return 0.0 if self.count == 0 else self.sum / self.count
 
 
 class RelativeL2Loss:
@@ -103,7 +100,6 @@ class RelativeL2Loss:
 
         diff_norm = torch.norm(diff, p=2, dim=1)
         tgt_norm = torch.norm(tgt, p=2, dim=1)
-
         rel = diff_norm / (tgt_norm + self.eps)
 
         if self.reduction == "mean":

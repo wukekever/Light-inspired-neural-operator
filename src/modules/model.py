@@ -1,3 +1,15 @@
+from __future__ import annotations
+
+"""
+Light-inspired neural operator building blocks for 1D and 2D PDE problems.
+
+Layout convention: the field / latent channel dimension is **last** in the
+tensor (channels-last), for example ``[B, L, C]`` in 1D and ``[B, H, W, C]`` in
+2D. Inside the trunk, ``C`` becomes the latent width ``M`` after lifting.
+"""
+
+from typing import Sequence
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -5,20 +17,18 @@ import torch.nn.functional as F
 
 class ReflectionLayer(nn.Module):
     """
-    Feature-space reflection operator on the latent dimension M.
+    Feature-space reflection on the latent dimension ``M``.
 
     Input:
-        x: [B, H, W, M]
+        ``x``: ``[B, *spatial, M]``
 
-    At each spatial location (h, w), the latent feature vector x[h, w, :]
-    is reflected with respect to an adaptive direction v_hat:
+    At each spatial index, the latent vector is reflected about an adaptive
+    unit direction ``v_hat`` derived from ``x``:
 
-        R(x) = x - 2 <x, v_hat> v_hat
+        ``R(x) = x - 2 <x, v_hat> v_hat``
 
-    This operation:
-        - acts pointwise in space,
-        - only mixes the feature dimension M,
-        - preserves spatial locality.
+    This acts pointwise over space and only mixes along ``M``, preserving
+    spatial locality in the sense that no cross-site coupling is introduced.
     """
 
     def __init__(self, num_features: int):
@@ -27,7 +37,8 @@ class ReflectionLayer(nn.Module):
         self.eps = 1e-6
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        v = self.v_proj(x)  # [B, H, W, M]
+        """Apply reflection in feature space; shape is preserved."""
+        v = self.v_proj(x)
         v_hat = v / (torch.norm(v, dim=-1, keepdim=True) + self.eps)
         proj = torch.sum(x * v_hat, dim=-1, keepdim=True)
         return x - 2.0 * proj * v_hat
@@ -35,21 +46,18 @@ class ReflectionLayer(nn.Module):
 
 class RefractionLayer(nn.Module):
     """
-    Feature-space refraction operator on the latent dimension M.
+    Feature-space refraction on the latent dimension ``M``.
 
-    At each spatial location, the latent feature vector is decomposed into
-    parallel and orthogonal components with respect to an adaptive direction:
+    Input:
+        ``x``: ``[B, *spatial, M]``
 
-        x = x_parallel + x_perp
+    Decompose ``x`` into components parallel and perpendicular to an adaptive
+    direction ``v_hat``, then rescale the perpendicular part:
 
-    The refraction operator rescales the orthogonal component:
+        ``x = x_parallel + x_perp``, ``T(x) = x_parallel + eta * x_perp``
 
-        T(x) = x_parallel + eta * x_perp
-
-    where:
-        - eta is a learnable scalar constrained near 1,
-        - the transformation acts only on the feature dimension M,
-        - no spatial interaction is introduced.
+    Here ``eta = 1 + rate_range * tanh(refractive_param)`` stays near 1. The
+    transform mixes only along ``M`` at each spatial location.
     """
 
     def __init__(self, num_features: int, rate_range: float = 0.25):
@@ -60,41 +68,37 @@ class RefractionLayer(nn.Module):
         self.eps = 1e-6
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """Apply refraction in feature space; shape is preserved."""
         v = self.v_proj(x)
         v_hat = v / (torch.norm(v, dim=-1, keepdim=True) + self.eps)
-
         x_perp = torch.sum(x * v_hat, dim=-1, keepdim=True) * v_hat
         x_parallel = x - x_perp
-
         eta = 1.0 + self.rate_range * torch.tanh(self.refractive_param)
         return x_parallel + eta * x_perp
 
 
-# TODO： O(N^2) -> O(N)
 class ScatteringLayer(nn.Module):
     """
-    Spatial scattering operator with relative positional bias.
+    Spatial scattering with full attention and relative positional bias (``O(N^2)``).
 
     Input:
-        x: [B, H, W, M]
+        ``x``: ``[B, *spatial, M]`` where ``*spatial`` is length ``L`` in 1D or
+        ``(H, W)`` in 2D.
 
     Interpretation:
         - M represents the latent optical feature dimension,
-        - scattering operates over the physical spatial domain (H, W),
+        - scattering operates over the physical spatial domain ``L`` in 1D or ``(H, W)`` in 2D,
         - each spatial location is treated as a node in a fully-connected graph.
 
     The operator constructs an input-adaptive kernel:
 
-        K_ij = softmax_j( q_i^T k_j / sqrt(d) + b(p_i - p_j) )
+        ``K_ij = softmax_j( q_i^T k_j / sqrt(d) + b(p_i - p_j) )``
 
-    where:
-        - i, j index spatial locations,
-        - p_i, p_j are normalized coordinates,
-        - b(p_i - p_j) is a learnable distance-based bias.
+    with normalized coordinates ``p`` in ``spatial_dims`` dimensions and a
+    Gaussian-style bias ``b = -softplus(tau) * ||p_i - p_j||^2``. Larger
+    ``tau`` encourages locality. The update rule is
 
-    The update rule is:
-
-        S(x)_i = sigma * ( sum_j K_ij v_j - x_i )
+        ``S(x)_i = sigma * ( sum_j K_ij v_j - x_i )``.
 
     This layer captures:
         - non-local spatial interactions,
@@ -102,9 +106,17 @@ class ScatteringLayer(nn.Module):
         - distance-aware attenuation via relative positional bias.
     """
 
-    def __init__(self, num_features: int, hidden_dim: int | None = None):
+    def __init__(
+        self, num_features: int, spatial_dims: int, hidden_dim: int | None = None
+    ):
         super().__init__()
+        if spatial_dims not in (1, 2):
+            raise ValueError(
+                f"Only 1D/2D spatial domains are supported, got {spatial_dims}"
+            )
+
         self.num_features = num_features
+        self.spatial_dims = spatial_dims
         self.hidden_dim = hidden_dim or num_features
 
         self.q_proj = nn.Linear(num_features, self.hidden_dim, bias=False)
@@ -115,67 +127,67 @@ class ScatteringLayer(nn.Module):
         #   bias_ij = - softplus(tau) * ||p_i - p_j||^2
         # Larger tau implies a stronger locality prior.
         self.log_tau = nn.Parameter(torch.tensor(0.0))
-
-        # Scattering strength / dissipation factor.
+        # Scattering strength / dissipation factor
         self.log_sigma = nn.Parameter(torch.tensor(-2.0))
         self.scale = self.hidden_dim**-0.5
 
-    @staticmethod
-    def _build_coords(H: int, W: int, device, dtype) -> torch.Tensor:
-        ys = torch.linspace(0.0, 1.0, H, device=device, dtype=dtype)
-        xs = torch.linspace(0.0, 1.0, W, device=device, dtype=dtype)
-        grid_y, grid_x = torch.meshgrid(ys, xs, indexing="ij")
-        coords = torch.stack([grid_y, grid_x], dim=-1)  # [H, W, 2]
-        coords = coords.reshape(H * W, 2)  # [N, 2]
-        return coords
+    def _build_coords(
+        self, spatial_shape: Sequence[int], device, dtype
+    ) -> torch.Tensor:
+        """Normalized grid coordinates of shape ``[N, spatial_dims]`` for ``N = prod(spatial_shape)``."""
+        axes = [
+            torch.linspace(0.0, 1.0, n, device=device, dtype=dtype)
+            for n in spatial_shape
+        ]
+        mesh = torch.meshgrid(*axes, indexing="ij")
+        coords = torch.stack(mesh, dim=-1)
+        return coords.reshape(-1, self.spatial_dims)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
-        x: [B, H, W, M]
+        Args:
+            x: ``[B, *spatial, M]`` latent features.
+
+        Returns:
+            Scattering residual of the same shape as ``x``.
         """
-        B, H, W, M = x.shape
-        N = H * W
+        spatial_shape = x.shape[1:-1]
+        B, M = x.shape[0], x.shape[-1]
+        N = 1
+        for n in spatial_shape:
+            N *= n
 
-        # Flatten physical space while keeping the latent feature dimension.
-        x_flat = x.reshape(B, N, M)  # [B, N, M]
+        x_flat = x.reshape(B, N, M)
+        q = self.q_proj(x_flat)
+        k = self.k_proj(x_flat)
+        v = self.v_proj(x_flat)
 
-        # Content-based projections.
-        q = self.q_proj(x_flat)  # [B, N, d]
-        k = self.k_proj(x_flat)  # [B, N, d]
-        v = self.v_proj(x_flat)  # [B, N, M]
+        logits = torch.einsum("bid,bjd->bij", q, k) * self.scale
 
-        # Content similarity logits.
-        logits = torch.einsum("bid,bjd->bij", q, k) * self.scale  # [B, N, N]
-
-        # Relative positional bias based on squared Euclidean distance.
-        coords = self._build_coords(H, W, x.device, x.dtype)  # [N, 2]
-        rel = coords[:, None, :] - coords[None, :, :]  # [N, N, 2]
-        dist2 = (rel**2).sum(dim=-1)  # [N, N]
+        coords = self._build_coords(spatial_shape, x.device, x.dtype)
+        rel = coords[:, None, :] - coords[None, :, :]
+        dist2 = (rel**2).sum(dim=-1)
 
         tau = F.softplus(self.log_tau)
-        pos_bias = -tau * dist2  # [N, N]
+        logits = logits + (-tau * dist2).unsqueeze(0)
 
-        logits = logits + pos_bias.unsqueeze(0)  # [B, N, N]
-
-        # Stabilize softmax.
+        # Stabilize softmax
         logits = logits - logits.max(dim=-1, keepdim=True).values
-        K = F.softmax(logits, dim=-1)  # [B, N, N]
-
-        # Spatial propagation.
-        y = torch.einsum("bij,bjm->bim", K, v)  # [B, N, M]
+        attn = F.softmax(logits, dim=-1)
+        # Spatial propagation
+        y = torch.einsum("bij,bjm->bim", attn, v)
 
         sigma = self.log_sigma.exp()
         y = sigma * (y - x_flat)
-
-        return y.reshape(B, H, W, M)
+        return y.reshape(B, *spatial_shape, M)
 
 
 class EfficientScatteringLayer(nn.Module):
     """
-    Efficient spatial scattering operator with linear complexity in N = H * W.
+    Efficient spatial scattering: linear complexity in ``N = prod(*spatial)``.
 
     Input:
-        x: [B, H, W, M]
+        ``x``: ``[B, *spatial, M]``
 
     Design rationale:
         The original implementation realizes the scattering kernel
@@ -198,15 +210,21 @@ class EfficientScatteringLayer(nn.Module):
     def __init__(
         self,
         num_features: int,
+        spatial_dims: int,
         hidden_dim: int | None = None,
         eps: float = 1e-6,
     ):
         super().__init__()
+        if spatial_dims not in (1, 2):
+            raise ValueError(
+                f"Only 1D/2D spatial domains are supported, got {spatial_dims}"
+            )
+
         self.num_features = num_features
+        self.spatial_dims = spatial_dims
         self.hidden_dim = hidden_dim or num_features
         self.eps = eps
 
-        # Content-dependent projections for the linearized kernel.
         self.q_proj = nn.Linear(num_features, self.hidden_dim, bias=False)
         self.k_proj = nn.Linear(num_features, self.hidden_dim, bias=False)
         self.v_proj = nn.Linear(num_features, num_features, bias=False)
@@ -214,14 +232,15 @@ class EfficientScatteringLayer(nn.Module):
         # A small coordinate encoder injects absolute spatial information into
         # the query/key construction without forming an O(N^2) bias matrix.
         self.coord_mlp = nn.Sequential(
-            nn.Linear(2, self.hidden_dim),
+            nn.Linear(spatial_dims, self.hidden_dim),
             nn.GELU(),
             nn.Linear(self.hidden_dim, self.hidden_dim),
         )
 
         # Lightweight local propagation branch. This serves as a surrogate for
         # the Gaussian locality prior in the original relative positional bias.
-        self.local_conv = nn.Conv2d(
+        conv_cls = nn.Conv1d if spatial_dims == 1 else nn.Conv2d
+        self.local_conv = conv_cls(
             num_features,
             num_features,
             kernel_size=3,
@@ -239,70 +258,84 @@ class EfficientScatteringLayer(nn.Module):
         self.scale = self.hidden_dim**-0.5
 
     @staticmethod
-    def _build_coords(H: int, W: int, device, dtype) -> torch.Tensor:
-        ys = torch.linspace(0.0, 1.0, H, device=device, dtype=dtype)
-        xs = torch.linspace(0.0, 1.0, W, device=device, dtype=dtype)
-        grid_y, grid_x = torch.meshgrid(ys, xs, indexing="ij")
-        coords = torch.stack([grid_y, grid_x], dim=-1)  # [H, W, 2]
-        return coords.reshape(H * W, 2)  # [N, 2]
-
-    @staticmethod
     def _feature_map(x: torch.Tensor) -> torch.Tensor:
-        # Positive feature map used in linear attention.
+        """Positive map ``phi`` used in linearized attention (ELU + 1)."""
         return F.elu(x) + 1.0
+
+    def _build_coords(
+        self, spatial_shape: Sequence[int], device, dtype
+    ) -> torch.Tensor:
+        """Same normalized grid as :meth:`ScatteringLayer._build_coords`."""
+        axes = [
+            torch.linspace(0.0, 1.0, n, device=device, dtype=dtype)
+            for n in spatial_shape
+        ]
+        mesh = torch.meshgrid(*axes, indexing="ij")
+        coords = torch.stack(mesh, dim=-1)
+        return coords.reshape(-1, self.spatial_dims)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
-        x: [B, H, W, M]
+        Args:
+            x: ``[B, *spatial, M]``.
+
+        Returns:
+            Scattering residual of the same shape as ``x``.
         """
-        B, H, W, M = x.shape
-        N = H * W
+        spatial_shape = x.shape[1:-1]
+        B, M = x.shape[0], x.shape[-1]
+        N = 1
+        for n in spatial_shape:
+            N *= n
 
-        x_flat = x.reshape(B, N, M)  # [B, N, M]
-        v = self.v_proj(x_flat)  # [B, N, M]
+        x_flat = x.reshape(B, N, M)
+        v = self.v_proj(x_flat)
 
-        coords = self._build_coords(H, W, x.device, x.dtype)  # [N, 2]
-        coord_feat = self.coord_mlp(coords).unsqueeze(0)  # [1, N, d]
+        coords = self._build_coords(spatial_shape, x.device, x.dtype)
+        coord_feat = self.coord_mlp(coords).unsqueeze(0)
 
-        q = self.q_proj(x_flat) * self.scale + coord_feat  # [B, N, d]
-        k = self.k_proj(x_flat) * self.scale + coord_feat  # [B, N, d]
+        q = self.q_proj(x_flat) * self.scale + coord_feat
+        k = self.k_proj(x_flat) * self.scale + coord_feat
 
-        q_phi = self._feature_map(q)  # [B, N, d]
-        k_phi = self._feature_map(k)  # [B, N, d]
+        q_phi = self._feature_map(q)
+        k_phi = self._feature_map(k)
 
         # Linear attention:
         #   y_i = (phi(q_i)^T sum_j phi(k_j) v_j) / (phi(q_i)^T sum_j phi(k_j))
-        kv = torch.einsum("bnd,bnm->bdm", k_phi, v)  # [B, d, M]
-        k_sum = k_phi.sum(dim=1)  # [B, d]
+        kv = torch.einsum("bnd,bnm->bdm", k_phi, v)
+        k_sum = k_phi.sum(dim=1)
 
-        global_num = torch.einsum("bnd,bdm->bnm", q_phi, kv)  # [B, N, M]
-        global_den = torch.einsum("bnd,bd->bn", q_phi, k_sum)  # [B, N]
+        global_num = torch.einsum("bnd,bdm->bnm", q_phi, kv)
+        global_den = torch.einsum("bnd,bd->bn", q_phi, k_sum)
         global_y = global_num / (global_den.unsqueeze(-1) + self.eps)
 
-        # Local branch: cheap spatial mixing to retain short-range propagation.
-        local_y = self.local_conv(x.permute(0, 3, 1, 2))  # [B, M, H, W]
-        local_y = local_y.permute(0, 2, 3, 1).reshape(B, N, M)  # [B, N, M]
-        local_y = self.local_proj(local_y)
+        # Local branch: cheap spatial mixing to retain short-range propagation
+        if self.spatial_dims == 1:
+            x_local = x.permute(0, 2, 1)
+            local_y = self.local_conv(x_local).permute(0, 2, 1)
+        else:
+            x_local = x.permute(0, 3, 1, 2)
+            local_y = self.local_conv(x_local).permute(0, 2, 3, 1)
+
+        local_y = self.local_proj(local_y.reshape(B, N, M))
 
         beta = torch.sigmoid(self.local_gate)
         y = (1.0 - beta) * global_y + beta * local_y
 
         sigma = self.log_sigma.exp()
         y = sigma * (y - x_flat)
-        return y.reshape(B, H, W, M)
+        return y.reshape(B, *spatial_shape, M)
 
 
 class FeatureMLP(nn.Module):
     """
-    Pointwise nonlinear transformation on the latent feature dimension M.
+    Pointwise MLP on the latent dimension ``M``.
 
-    Input / Output:
-        x: [B, H, W, M]
+    Input / output:
+        ``x``: ``[B, *spatial, M]``
 
-    This module:
-        - operates independently at each spatial location,
-        - enhances feature expressiveness,
-        - does not introduce spatial coupling.
+    Applied independently at each spatial location; introduces no explicit
+    spatial mixing beyond what upstream layers already encoded in ``M``.
     """
 
     def __init__(self, num_features: int, expansion: int = 2):
@@ -323,7 +356,7 @@ class LightEvolutionBlock(nn.Module):
     Core evolution block combining feature-space optics and spatial propagation.
 
     Input:
-        x: [B, H, W, M]
+        ``x``: ``[B, *spatial, M]``
 
     Modeling decomposition:
         - Reflection and refraction act in feature space (M),
@@ -347,48 +380,51 @@ class LightEvolutionBlock(nn.Module):
         - spatial interaction (kernel propagation).
     """
 
-    def __init__(self, num_features: int, scattering_type="standard"):
+    def __init__(
+        self, num_features: int, spatial_dims: int, scattering_type: str = "efficient"
+    ):
         super().__init__()
-        self.num_features = num_features
-
+        self.spatial_dims = spatial_dims
         self.norm1 = nn.LayerNorm(num_features)
         self.norm2 = nn.LayerNorm(num_features)
-
         self.reflection = ReflectionLayer(num_features)
         self.refraction = RefractionLayer(num_features)
-        if scattering_type == "standard":
-            self.scattering = ScatteringLayer(num_features)
+        st = scattering_type.lower()
+        if st == "standard":
+            self.scattering = ScatteringLayer(num_features, spatial_dims=spatial_dims)
+        elif st == "efficient":
+            self.scattering = EfficientScatteringLayer(
+                num_features, spatial_dims=spatial_dims
+            )
         else:
-            self.scattering = EfficientScatteringLayer(num_features)
-
+            raise ValueError(
+                f"scattering_type must be 'standard' or 'efficient', got {scattering_type!r}"
+            )
         self.gate = nn.Sequential(
             nn.Linear(num_features, 2 * num_features),
             nn.GELU(),
             nn.Linear(2 * num_features, 3),
         )
-
         self.out_proj = nn.Linear(num_features, num_features)
         self.ffn = FeatureMLP(num_features)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """
-        x: [B, H, W, M]
-        """
+        """Residual update; output shape matches ``x``."""
         h = self.norm1(x)
+        xr = self.reflection(h)
+        xt = self.refraction(h)
+        xs = self.scattering(h)
 
-        xr = self.reflection(h)  # feature-space transform
-        xt = self.refraction(h)  # feature-space transform
-        xs = self.scattering(h)  # spatial propagation
+        reduce_dims = tuple(range(1, h.ndim - 1))
+        pooled = h.mean(dim=reduce_dims)
+        alpha = F.softmax(self.gate(pooled), dim=-1)
 
-        pooled = h.mean(dim=(1, 2))  # [B, M]
-        alpha = F.softmax(self.gate(pooled), dim=-1)  # [B, 3]
-
-        a_r = alpha[:, 0].view(-1, 1, 1, 1)
-        a_t = alpha[:, 1].view(-1, 1, 1, 1)
-        a_s = alpha[:, 2].view(-1, 1, 1, 1)
+        shape = [x.shape[0]] + [1] * (x.ndim - 2) + [1]
+        a_r = alpha[:, 0].view(*shape)
+        a_t = alpha[:, 1].view(*shape)
+        a_s = alpha[:, 2].view(*shape)
 
         mix = a_r * xr + a_t * xt + a_s * xs
-
         x = x + self.out_proj(mix)
         x = x + self.ffn(self.norm2(x))
         return x
@@ -399,10 +435,10 @@ class LiftingLayer(nn.Module):
     Linear lifting from input field to latent feature space.
 
     Input:
-        x: [B, H, W, in_channels]
+        ``x``: ``[B, *spatial, in_channels]``
 
     Output:
-        y: [B, H, W, M]
+        ``[B, *spatial, M]`` — embedding only; no spatial coupling.
 
     This layer:
         - embeds raw inputs into a latent feature space,
@@ -422,10 +458,10 @@ class ProjectionLayer(nn.Module):
     Linear projection from latent feature space to output field.
 
     Input:
-        x: [B, H, W, M]
+        ``x``: ``[B, *spatial, M]``
 
     Output:
-        y: [B, H, W, out_channels]
+        ``[B, *spatial, out_channels]``.
 
     This layer maps the learned latent representation back to the target space.
     """
@@ -438,9 +474,9 @@ class ProjectionLayer(nn.Module):
         return self.linear(x)
 
 
-class LightNeuralOperator2D(nn.Module):
+class LightNeuralOperator(nn.Module):
     """
-    Light-inspired neural operator for 2D problems.
+    Light-inspired neural operator for 1D/2D problems.
 
     Architecture overview:
         - H, W represent physical spatial coordinates,
@@ -460,29 +496,88 @@ class LightNeuralOperator2D(nn.Module):
         self,
         in_channels: int,
         out_channels: int,
+        spatial_dims: int,
         num_features: int = 16,
         depth: int = 4,
+        scattering_type: str = "efficient",
     ):
         super().__init__()
+        if spatial_dims not in (1, 2):
+            raise ValueError(f"Only 1D/2D are supported, got {spatial_dims}")
+        self.spatial_dims = spatial_dims
         self.num_features = num_features
         self.depth = depth
+        self.scattering_type = scattering_type
 
         self.lifting = LiftingLayer(in_channels, num_features)
-
         self.blocks = nn.ModuleList(
-            [LightEvolutionBlock(num_features) for _ in range(depth)]
+            [
+                LightEvolutionBlock(
+                    num_features,
+                    spatial_dims=spatial_dims,
+                    scattering_type=scattering_type,
+                )
+                for _ in range(depth)
+            ]
         )
-
         self.projection = ProjectionLayer(num_features, out_channels)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
-        x: [B, H, W, in_channels]
-        """
-        x = self.lifting(x)  # [B, H, W, M]
+        Args:
+            x: Field tensor whose ndim is ``spatial_dims + 2``.
 
+        Returns:
+            Predicted field with ``out_channels`` on the last dimension.
+        """
+        expected_ndim = self.spatial_dims + 2
+        if x.ndim != expected_ndim:
+            raise ValueError(
+                f"Expected input ndim={expected_ndim} for spatial_dims={self.spatial_dims}, got shape {tuple(x.shape)}"
+            )
+        x = self.lifting(x)
         for blk in self.blocks:
             x = blk(x)
+        return self.projection(x)
 
-        y = self.projection(x)  # [B, H, W, out_channels]
-        return y
+
+class LightNeuralOperator1D(LightNeuralOperator):
+    """Convenience wrapper with ``spatial_dims=1`` (sequence / 1D grid)."""
+
+    def __init__(
+        self,
+        in_channels: int,
+        out_channels: int,
+        num_features: int = 16,
+        depth: int = 4,
+        scattering_type: str = "efficient",
+    ):
+        super().__init__(
+            in_channels,
+            out_channels,
+            spatial_dims=1,
+            num_features=num_features,
+            depth=depth,
+            scattering_type=scattering_type,
+        )
+
+
+class LightNeuralOperator2D(LightNeuralOperator):
+    """Convenience wrapper with ``spatial_dims=2`` (image / 2D grid)."""
+
+    def __init__(
+        self,
+        in_channels: int,
+        out_channels: int,
+        num_features: int = 16,
+        depth: int = 4,
+        scattering_type: str = "efficient",
+    ):
+        super().__init__(
+            in_channels,
+            out_channels,
+            spatial_dims=2,
+            num_features=num_features,
+            depth=depth,
+            scattering_type=scattering_type,
+        )

@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import argparse
+from pathlib import Path
+
 import matplotlib.pyplot as plt
 import torch
 from datetime import datetime
 
-from datasets.darcy2d import Darcy2DDataset, build_darcy2d_splits
-from modules.model import LightNeuralOperator2D
+from datasets import OperatorDataset, build_burgers1d_splits, build_darcy2d_splits
+from modules.model import LightNeuralOperator
 from utils import RelativeL2Loss, resolve_mat_path
 from termcolor import colored
 
@@ -30,7 +32,11 @@ def log_info(message: str, username: str = "wukekever") -> None:
 @torch.no_grad()
 def main(args) -> None:
     ckpt_path = args.ckpt_path
-    device = torch.device("cuda:3" if torch.cuda.is_available() else "cpu")
+    device = torch.device(
+        args.device
+        if args.device
+        else ("cuda:3" if torch.cuda.is_available() else "cpu")
+    )
 
     log_info(f"Loading checkpoint from {ckpt_path}")
 
@@ -46,23 +52,37 @@ def main(args) -> None:
         use_coord = not cfg.get("no_coord", False)
 
     log_info("Building dataset splits")
-    split = build_darcy2d_splits(
-        mat_path=resolve_mat_path(cfg["data_path"]),
-        target_size=tuple(cfg["target_size"])
-        if cfg["target_size"] is not None
-        else None,
-        n_train=cfg["n_train"],
-        n_val=cfg["n_val"],
-        use_coord=use_coord,
-        normalize_x=cfg.get("normalize_x", True),
-        normalize_y=cfg.get("normalize_y", True),
-        seed=cfg["seed"],
-    )
+    dataset_name = cfg.get("dataset_name")
+    if dataset_name == "burgers1d":
+        split = build_burgers1d_splits(
+            mat_path=resolve_mat_path(cfg["data_path"]),
+            target_size=cfg.get("target_size"),
+            n_train=cfg["n_train"],
+            n_val=cfg["n_val"],
+            use_coord=use_coord,
+            normalize_x=cfg.get("normalize_x", True),
+            normalize_y=cfg.get("normalize_y", True),
+            seed=cfg["seed"],
+        )
+    elif dataset_name == "darcy2d":
+        split = build_darcy2d_splits(
+            mat_path=resolve_mat_path(cfg["data_path"]),
+            target_size=cfg.get("target_size"),
+            n_train=cfg["n_train"],
+            n_val=cfg["n_val"],
+            use_coord=use_coord,
+            normalize_x=cfg.get("normalize_x", True),
+            normalize_y=cfg.get("normalize_y", True),
+            seed=cfg["seed"],
+        )
+    else:
+        raise ValueError(f"Unsupported dataset: {dataset_name}")
 
     log_info("Initializing model")
-    model = LightNeuralOperator2D(
-        in_channels=cfg["in_channels"],
-        out_channels=cfg["out_channels"],
+    model = LightNeuralOperator(
+        in_channels=ckpt.get("in_channels", split.input_channels),
+        out_channels=ckpt.get("out_channels", split.output_channels),
+        spatial_dims=ckpt.get("spatial_dims", split.spatial_dims),
         num_features=cfg["num_features"],
         depth=cfg["depth"],
     ).to(device)
@@ -71,93 +91,64 @@ def main(args) -> None:
 
     split.x_normalizer.load_state_dict(ckpt["x_normalizer"])
     split.y_normalizer.load_state_dict(ckpt["y_normalizer"])
-    for normalizer in (split.x_normalizer, split.y_normalizer):
-        normalizer.mean = normalizer.mean.detach().cpu()
-        normalizer.std = normalizer.std.detach().cpu()
 
-    val_set = Darcy2DDataset(split.val_x, split.val_y)
-
-    index = args.index
-    log_info(f"Evaluating sample index {index}")
-    x, y = val_set[index]
+    val_set = OperatorDataset(split.val_x, split.val_y)
+    x, y = val_set[args.index]
     x = x.unsqueeze(0).to(device)
     y = y.unsqueeze(0).to(device)
-
-    try:
-        pred = model(x)
-    except RuntimeError as exc:
-        if device.type == "cuda" and "out of memory" in str(exc).lower():
-            log_info("CUDA out of memory; retrying on CPU")
-            torch.cuda.empty_cache()
-            device = torch.device("cpu")
-            model = model.to(device)
-            x = x.to(device)
-            y = y.to(device)
-            pred = model(x)
-        else:
-            raise
+    pred = model(x)
 
     rel_loss_fn = RelativeL2Loss()
-    rel_err_norm = rel_loss_fn(pred, y).item()
-
-    y_phys = split.y_normalizer.decode(y.cpu())
+    rel_err = rel_loss_fn(pred, y).item()
     pred_phys = split.y_normalizer.decode(pred.cpu())
+    y_phys = split.y_normalizer.decode(y.cpu())
 
-    coeff_norm = x[0, ..., 0].detach().cpu()
-    coeff_phys = split.x_normalizer.decode(coeff_norm.unsqueeze(-1)).squeeze(-1)
+    output_path = Path(args.output_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    target_field = y_phys[0, ..., 0]
-    pred_field = pred_phys[0, ..., 0]
-    err_field = pred_field - target_field
+    if split.spatial_dims == 1:
+        coeff_norm = x[0, ..., 0].detach().cpu()
+        coeff_phys = split.x_normalizer.decode(coeff_norm.unsqueeze(-1)).squeeze(-1)
+        xs = torch.linspace(0.0, 1.0, coeff_phys.shape[0])
+        plt.figure(figsize=(10, 4))
+        plt.plot(xs.numpy(), coeff_phys.numpy(), label="Input coeff")
+        plt.plot(xs.numpy(), y_phys[0, ..., 0].numpy(), label="Ground truth")
+        plt.plot(xs.numpy(), pred_phys[0, ..., 0].numpy(), label="Prediction")
+        plt.title(f"Burgers1D evaluation | rel-L2={rel_err:.3e}")
+        plt.legend()
+        plt.tight_layout()
+    else:
+        coeff_norm = x[0, ..., 0].detach().cpu()
+        coeff_phys = split.x_normalizer.decode(coeff_norm.unsqueeze(-1)).squeeze(-1)
+        target_field = y_phys[0, ..., 0]
+        pred_field = pred_phys[0, ..., 0]
+        err_field = pred_field - target_field
 
-    log_info(f"Relative L2 error in normalized space: {rel_err_norm:.6e}")
+        fig = plt.figure(figsize=(16, 4))
+        for i, (field, title) in enumerate(
+            [
+                (coeff_phys, "Coefficient"),
+                (target_field, "Ground Truth"),
+                (pred_field, "Prediction"),
+                (err_field, "Error"),
+            ],
+            start=1,
+        ):
+            ax = fig.add_subplot(1, 4, i)
+            im = ax.imshow(field.numpy(), origin="lower")
+            ax.set_title(title)
+            plt.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
+        plt.suptitle(f"Darcy2D evaluation | rel-L2={rel_err:.3e}")
+        plt.tight_layout()
 
-    fig = plt.figure(figsize=(16, 4))
-
-    ax1 = fig.add_subplot(1, 4, 1)
-    im1 = ax1.imshow(coeff_phys.numpy(), origin="lower")
-    ax1.set_title("Coefficient")
-    plt.colorbar(im1, ax=ax1, fraction=0.046, pad=0.04)
-
-    ax2 = fig.add_subplot(1, 4, 2)
-    im2 = ax2.imshow(target_field.numpy(), origin="lower")
-    ax2.set_title("Ground Truth Solution")
-    plt.colorbar(im2, ax=ax2, fraction=0.046, pad=0.04)
-
-    ax3 = fig.add_subplot(1, 4, 3)
-    im3 = ax3.imshow(pred_field.numpy(), origin="lower")
-    ax3.set_title("Predicted Solution")
-    plt.colorbar(im3, ax=ax3, fraction=0.046, pad=0.04)
-
-    ax4 = fig.add_subplot(1, 4, 4)
-    im4 = ax4.imshow(err_field.numpy(), origin="lower")
-    ax4.set_title("Prediction Error")
-    plt.colorbar(im4, ax=ax4, fraction=0.046, pad=0.04)
-
-    plt.tight_layout()
-    plt.savefig(args.output_path, dpi=150, bbox_inches="tight")
-    log_info(f"Evaluation plot saved to {args.output_path}")
+    plt.savefig(output_path, dpi=150, bbox_inches="tight")
+    print(f"Saved evaluation plot to {output_path}")
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Evaluate Light Neural Operator model")
-    parser.add_argument(
-        "--ckpt-path",
-        type=str,
-        required=True,
-        help="Path to checkpoint file",
-    )
-    parser.add_argument(
-        "--index",
-        type=int,
-        required=True,
-        help="Index of validation sample to evaluate",
-    )
-    parser.add_argument(
-        "--output-path",
-        type=str,
-        default="evaluation_results.png",
-        help="Path to save evaluation plot",
-    )
-    args = parser.parse_args()
-    main(args)
+    parser.add_argument("--ckpt-path", type=str, required=True)
+    parser.add_argument("--index", type=int, default=0)
+    parser.add_argument("--output-path", type=str, default="evaluation_results.png")
+    parser.add_argument("--device", type=str, default=None)
+    main(parser.parse_args())

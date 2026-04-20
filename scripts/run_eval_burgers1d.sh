@@ -2,8 +2,7 @@
 ## Working directory: Light-inspired-neural-operator
 ## Usage: bash ./scripts/run_eval.sh
 
-# LNO_PATH="2026-04-14_21-27-02_light_neural_operator_version_1" # O(N^2) scattering
-LNO_PATH="2026-04-14_21-55-48_light_neural_operator_version_1" # O(NdM) scattering
+LNO_PATH="2026-04-19_20-22-43_light_neural_operator_version_1" # O(NdM) scattering
 CKPT_PATH="../outputs/${LNO_PATH}/ckpts/best_model.pt"
 
 # Get the script's directory and change to src
