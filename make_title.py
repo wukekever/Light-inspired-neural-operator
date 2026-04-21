@@ -2,7 +2,7 @@ import colorsys
 
 from PIL import Image, ImageDraw, ImageFont
 
-text = "Let There Be Light: "
+text = "Light-inspired Neural Operator"
 font = ImageFont.truetype(
     "DejaVuSans.ttf", 48
 )  # Use a larger font for better visibility
@@ -15,8 +15,10 @@ draw = ImageDraw.Draw(img)
 bbox = draw.textbbox((0, 0), text, font=font)
 text_width = bbox[2] - bbox[0]
 
+# Calculate starting x position to center text
+x = (1000 - text_width) // 2
+
 # Color each character (soft rainbow with low contrast)
-x = 20
 for i, char in enumerate(text):
     hue = i / len(text)  # 0~1 mapped to rainbow color
     r, g, b = colorsys.hsv_to_rgb(

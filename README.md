@@ -1,6 +1,8 @@
 <!-- # Let There Be Light: Reflection, Refraction and Scattering for Neural Operators of Parametric PDEs -->
 ![](doc/rainbow_title.png)
-# Reflection, Refraction and Scattering for Neural Operators of Parametric PDEs
+
+## Title: Let There Be Light: Reflection, Refraction and Scattering for PDE Neural Operators
+### Authors: Keke Wu
 
 ## 🔍 Overview
 
@@ -90,7 +92,7 @@ If you find this work useful, please cite:
 
 ```bibtex
 @article{wu2026light,
-    title={Let There Be Light: Reflection, Refraction and Scattering for Neural Operators of Parametric PDEs},
+    title={Let There Be Light: Reflection, Refraction and Scattering for PDE Neural Operators},
     author={Keke Wu},
     year={2026}
 }

@@ -67,7 +67,8 @@ def get_parser():
     parser.add_argument(
         "--scattering-type",
         type=str,
-        default="standard",
+        default="efficient",
+        # default="standard",
         choices=["efficient", "standard"],
     )  # scattering type for the light-inspired layers, "efficient" uses the optimized implementation, while "standard" uses the original scattering transform
 

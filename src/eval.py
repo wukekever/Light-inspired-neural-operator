@@ -85,6 +85,7 @@ def main(args) -> None:
         spatial_dims=ckpt.get("spatial_dims", split.spatial_dims),
         num_features=cfg["num_features"],
         depth=cfg["depth"],
+        scattering_type=cfg["scattering_type"],
     ).to(device)
     model.load_state_dict(ckpt["model_state_dict"])
     model.eval()
