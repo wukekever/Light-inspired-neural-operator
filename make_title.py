@@ -29,4 +29,4 @@ for i, char in enumerate(text):
     char_bbox = draw.textbbox((0, 0), char, font=font)
     x += char_bbox[2] - char_bbox[0]
 
-img.save("./doc/rainbow_title.png")
+img.save("./assets/rainbow_title.png")

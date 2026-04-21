@@ -1,8 +1,17 @@
 <!-- # Let There Be Light: Reflection, Refraction and Scattering for Neural Operators of Parametric PDEs -->
-![](doc/rainbow_title.png)
+![](assets/rainbow_title.png)
+<p align="center">
+  <img src="assets/ustc-logo.png" alt="USTC Logo" height="50">
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  <img src="assets/transparent-ustc-logo.png" alt="UIUC Logo" height="50"><br>
+  <sub><b>¹ University of Science and Technology of China (USTC)</b> &nbsp;&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;&nbsp; <b>² University of Science and Technology of China (USTC)</b></sub>
+<p>
 
 ## Title: Let There Be Light: Reflection, Refraction and Scattering for PDE Neural Operators
-### Authors: Keke Wu
+
+### Authors: Keke Wu and XXX 
+[![ArXiv](https://img.shields.io/badge/arXiv-Paper-b31b1b?logo=arxiv&logoColor=white)](https://arxiv.org/abs/2111.02541) 
+
 
 ## 🔍 Overview
 
