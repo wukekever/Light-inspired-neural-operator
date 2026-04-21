@@ -1,5 +1,6 @@
 <!-- # Let There Be Light: Reflection, Refraction and Scattering for Neural Operators of Parametric PDEs -->
 ![](doc/rainbow_title.png)
+# Reflection, Refraction and Scattering for Neural Operators of Parametric PDEs
 
 ## 🔍 Overview
 
