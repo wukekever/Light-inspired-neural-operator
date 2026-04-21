@@ -1,10 +1,13 @@
 <!-- # Let There Be Light: Reflection, Refraction and Scattering for Neural Operators of Parametric PDEs -->
 ![](assets/rainbow_title.png)
-<p align="center">
+<!-- <p align="center">
   <img src="assets/ustc-logo.png" alt="USTC Logo" height="50">
   &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
   <img src="assets/transparent-ustc-logo.png" alt="UIUC Logo" height="50"><br>
   <sub><b>¹ University of Science and Technology of China (USTC)</b> &nbsp;&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;&nbsp; <b>² University of Science and Technology of China (USTC)</b></sub>
+<p> -->
+<p align="center">
+  <img src="assets/ustc-logo.png" alt="USTC Logo" height="50">
 <p>
 
 ## Title: Let There Be Light: Reflection, Refraction and Scattering for PDE Neural Operators
@@ -58,10 +61,14 @@ Examples:
 ```bash
 tree
 .
+├── assets
+│   ├── rainbow_title.png
+│   ├── transparent-ustc-logo.png
+│   ├── transparent-ustc-sz-logo.png
+│   └── ustc-logo.png
 ├── doc
 │   ├── light_inspired_neural_operator.pdf
-│   ├── method.tex
-│   └── rainbow_title.png
+│   └── method.tex
 ├── make_title.py
 ├── README.md
 ├── requirements.txt
@@ -74,13 +81,8 @@ tree
 │   └── run_train_darcy2d.sh
 └── src
     ├── datasets
-    │   ├── Burgers1D
-    │   │   └── burgers_data_R10.mat
     │   ├── burgers1d.py
     │   ├── common.py
-    │   ├── Darcy2D
-    │   │   ├── piececonst_r241_N1024_smooth1.mat
-    │   │   └── piececonst_r241_N1024_smooth2.mat
     │   ├── darcy2d.py
     │   ├── data_infos.md
     │   ├── datatest.ipynb
@@ -92,7 +94,6 @@ tree
     ├── run_burgers1d.py
     ├── run_darcy2d.py
     └── utils.py
-
 ```
 
 ## 📌 Citation
