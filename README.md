@@ -66,37 +66,42 @@ Examples:
 tree
 .
 ├── assets
-│   ├── rainbow_title.png
-│   ├── transparent-ustc-logo.png
-│   ├── transparent-ustc-sz-logo.png
-│   └── ustc-logo.png
+│   ├── rainbow_title.png
+│   ├── transparent-ustc-logo.png
+│   ├── transparent-ustc-sz-logo.png
+│   └── ustc-logo.png
 ├── doc
-│   ├── light_inspired_neural_operator.pdf
-│   └── method.tex
+│   ├── light_inspired_neural_operator.pdf
+│   └── method.tex
 ├── make_title.py
 ├── README.md
 ├── requirements.txt
 ├── scripts
-│   ├── download_burgers1d.sh
-│   ├── download_darcy2d.sh
-│   ├── run_eval_burgers1d.sh
-│   ├── run_eval_darcy2d.sh
-│   ├── run_train_burgers1d.sh
-│   └── run_train_darcy2d.sh
+│   ├── download_burgers1d.sh
+│   ├── download_darcy2d.sh
+│   ├── download_navierstokes2d.sh
+│   ├── run_eval_burgers1d.sh
+│   ├── run_eval_darcy2d.sh
+│   ├── run_eval_navierstokes2d.sh
+│   ├── run_train_burgers1d.sh
+│   ├── run_train_darcy2d.sh
+│   └── run_train_navierstokes2d.sh
 └── src
     ├── datasets
-    │   ├── burgers1d.py
-    │   ├── common.py
-    │   ├── darcy2d.py
-    │   ├── data_infos.md
-    │   ├── datatest.ipynb
-    │   └── __init__.py
+    │   ├── burgers1d.py
+    │   ├── common.py
+    │   ├── darcy2d.py
+    │   ├── data_infos.md
+    │   ├── datatest.ipynb
+    │   ├── __init__.py
+    │   └── navierstokes2d.py
     ├── eval.py
     ├── logger.py
     ├── modules
-    │   └── model.py
+    │   └── model.py
     ├── run_burgers1d.py
     ├── run_darcy2d.py
+    ├── run_navierstokes2d.py
     └── utils.py
 
 ```
