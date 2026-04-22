@@ -5,12 +5,12 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
 # Set Google Drive file ID and output filename
-FILE_ID="1ViDqN7nc_VCnMackiXv_d7CHZANAFKzV"   # Replace with your file ID
-OUTPUT="${REPO_ROOT}/src/datasets/Darcy2D/darcy.zip"
+FILE_ID="1r3idxpsHa21ijhlu3QQ1hVuXcqnBTO7d"  # NavierStokes_V1e-3_N5000_T50
+OUTPUT="${REPO_ROOT}/src/datasets/NavierStokes2D/navierstokes.zip"
 OUT_DIR="$(dirname "$OUTPUT")"
-MAT="${OUT_DIR}/piececonst_r241_N1024_smooth1.mat"
-COOKIES="${OUT_DIR}/.darcy_cookies.txt"
-RESPONSE_HTML="${OUT_DIR}/.darcy_response.html"
+MAT="${OUT_DIR}/ns_V1e-3_N5000_T50.mat"
+COOKIES="${OUT_DIR}/.navierstokes_cookies.txt"
+RESPONSE_HTML="${OUT_DIR}/.navierstokes_response.html"
 
 mkdir -p "$OUT_DIR"
 

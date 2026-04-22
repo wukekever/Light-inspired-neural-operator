@@ -5,6 +5,7 @@ from typing import Iterable, Sequence
 
 import numpy as np
 import scipy.io
+import h5py
 import torch
 import torch.nn.functional as F
 from torch.utils.data import Dataset
@@ -13,10 +14,19 @@ from torch.utils.data import Dataset
 SpatialSize = tuple[int, ...]
 
 
+# def load_mat_file(path: str) -> dict[str, np.ndarray]:
+#     """Load a .mat file and drop scipy-internal keys (``__header__``, etc.)."""
+#     raw = scipy.io.loadmat(path)
+#     return {k: v for k, v in raw.items() if not k.startswith("__")}
 def load_mat_file(path: str) -> dict[str, np.ndarray]:
-    """Load a .mat file and drop scipy-internal keys (``__header__``, etc.)."""
-    raw = scipy.io.loadmat(path)
-    return {k: v for k, v in raw.items() if not k.startswith("__")}
+    """Load .mat file, supports both legacy and v7.3 formats."""
+    try:
+        raw = scipy.io.loadmat(path)
+        return {k: v for k, v in raw.items() if not k.startswith("__")}
+    except NotImplementedError:
+        # v7.3 format, use h5py
+        with h5py.File(path, "r") as f:
+            return {k: np.array(f[k]).T for k in f.keys() if not k.startswith("__")}
 
 
 class UnitGaussianNormalizer:

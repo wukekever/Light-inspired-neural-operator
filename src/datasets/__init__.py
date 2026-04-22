@@ -1,6 +1,11 @@
 from datasets.common import OperatorDataset, OperatorSplit, UnitGaussianNormalizer
 from datasets.burgers1d import Burgers1DDataset, BurgersSplit, build_burgers1d_splits
 from datasets.darcy2d import Darcy2DDataset, DarcySplit, build_darcy2d_splits
+from datasets.navierstokes2d import (
+    NavierStokes2DDataset,
+    NavierStokes2DSplit,
+    build_navierstokes2d_splits,
+)
 
 __all__ = [
     "OperatorDataset",
@@ -12,4 +17,7 @@ __all__ = [
     "Darcy2DDataset",
     "DarcySplit",
     "build_darcy2d_splits",
+    "NavierStokes2DDataset",
+    "NavierStokes2DSplit",
+    "build_navierstokes2d_splits",
 ]

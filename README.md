@@ -3,18 +3,21 @@
 <!-- <p align="center">
   <img src="assets/ustc-logo.png" alt="USTC Logo" height="50">
   &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-  <img src="assets/transparent-ustc-logo.png" alt="UIUC Logo" height="50"><br>
-  <sub><b>¹ University of Science and Technology of China (USTC)</b> &nbsp;&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;&nbsp; <b>² University of Science and Technology of China (USTC)</b></sub>
+  <img src="assets/transparent-ustc-sz-logo.png" alt="USTCSZ Logo" height="40"><br>
+  <sub><b>¹ University of Science and Technology of China (USTC) </b> &nbsp;&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;&nbsp; <b>² Suzhou Institute for Advanced Research (USTC-SZ) </b></sub>
 <p> -->
 <p align="center">
-  <img src="assets/transparent-ustc-logo.png" alt="USTC Logo" height="50">
+  <img src="assets/transparent-ustc-logo.png" alt="USTC Logo" height="40">
 <p>
 
-## Title: Let There Be Light: Reflection, Refraction and Scattering for PDE Neural Operators
+#### **Title:** Let There Be Light: Reflection, Refraction and Scattering for PDE Neural Operators
 
-### Authors: Keke Wu and XXX 
+#### **Authors:** Keke Wu and XXX
+`TODO: Update the arXiv link and other links after the paper is published`
+ 
 [![ArXiv](https://img.shields.io/badge/arXiv-Paper-b31b1b?logo=arxiv&logoColor=white)](https://arxiv.org/abs/2111.02541) 
 
+[**Overview**](#-overview) | [**Installation**](#-installation) | [**Datasets**](#-datasets) | [**Project Architecture**](#-project-architecture) | [**Citation**](#-citation)
 
 ## 🔍 Overview
 
@@ -44,6 +47,7 @@ Alternatively, use the provided shell script in the Light-inspired-neural-operat
 ```bash
 bash ./scripts/download_burgers.sh 
 bash ./scripts/download_darcy2d.sh
+bash ./scripts/download_navierstokes2d.sh
 ```
 
 **Dataset Format:**
@@ -53,58 +57,63 @@ Datasets are provided as MATLAB files and each file is loaded as a tensor where 
 Examples:
 - `Burgers_R10.mat`: Shape [1000, 8192] — 1000 samples on a 1D grid of 8192 points
 - `Darcy2D_piececonst_r241_N1024_smooth1.mat`: Shape [1024, 241, 241] — 1024 samples on a 2D grid of 241×241
-- `NavierStokes_V1e-3_N5000_T50.mat`: Shape [5000, 64, 64, 50] — 5000 samples on a 2D grid of 64×64 with 50 time steps
-
+- `ns_V1e-3_N5000_T50.mat`: Shape [5000, 64, 64, 50] — 5000 samples on a 2D grid of 64×64 with 50 time steps
 
 
 ## 📁 Project Architecture
+`TODO: Update more details about the project architecture`
 ```bash
 tree
 .
 ├── assets
-│   ├── rainbow_title.png
-│   ├── transparent-ustc-logo.png
-│   ├── transparent-ustc-sz-logo.png
-│   └── ustc-logo.png
+│   ├── rainbow_title.png
+│   ├── transparent-ustc-logo.png
+│   ├── transparent-ustc-sz-logo.png
+│   └── ustc-logo.png
 ├── doc
-│   ├── light_inspired_neural_operator.pdf
-│   └── method.tex
+│   ├── light_inspired_neural_operator.pdf
+│   └── method.tex
 ├── make_title.py
 ├── README.md
 ├── requirements.txt
 ├── scripts
-│   ├── download_burgers1d.sh
-│   ├── download_darcy2d.sh
-│   ├── run_eval_burgers1d.sh
-│   ├── run_eval_darcy2d.sh
-│   ├── run_train_burgers1d.sh
-│   └── run_train_darcy2d.sh
+│   ├── download_burgers1d.sh
+│   ├── download_darcy2d.sh
+│   ├── run_eval_burgers1d.sh
+│   ├── run_eval_darcy2d.sh
+│   ├── run_train_burgers1d.sh
+│   └── run_train_darcy2d.sh
 └── src
     ├── datasets
-    │   ├── burgers1d.py
-    │   ├── common.py
-    │   ├── darcy2d.py
-    │   ├── data_infos.md
-    │   ├── datatest.ipynb
-    │   └── __init__.py
+    │   ├── burgers1d.py
+    │   ├── common.py
+    │   ├── darcy2d.py
+    │   ├── data_infos.md
+    │   ├── datatest.ipynb
+    │   └── __init__.py
     ├── eval.py
     ├── logger.py
     ├── modules
-    │   └── model.py
+    │   └── model.py
     ├── run_burgers1d.py
     ├── run_darcy2d.py
     └── utils.py
+
 ```
 
 ## 📌 Citation
 
 If you find this work useful, please cite:
 
+`TODO: Update the citation after the information is available`
 ```bibtex
 @article{wu2026light,
     title={Let There Be Light: Reflection, Refraction and Scattering for PDE Neural Operators},
     author={Keke Wu},
-    year={2026}
+    year={2026},
+    eprint={},
+    archivePrefix={arXiv},
+    url={},
 }
 ```
 
