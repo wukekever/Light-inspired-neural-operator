@@ -60,7 +60,13 @@
 \begin{document}
 \title{Let There Be Light: Reflection, Refraction, and Scattering for Neural Operators of Parametric PDEs}
 
-\author[]{Keke Wu}
+\author[1,3,4]{Keke Wu}
+\author[1,2,4 \thanks{Corresponding author:jingrunchen@ustc.edu.cn}]{Jingrun Chen}
+\affil[1]{\small Suzhou Institute for Advanced Research, University of Science and Technology of China, Suzhou 215123, China}
+\affil[2]{\small School of Mathematical Sciences, University of Science and Technology of China, Hefei 230026, China}
+\affil[3]{\small School of Artificial Intelligence and Data Science, University of Science and Technology of China, Hefei 230026, China }
+\affil[4]{\small Suzhou Big Data \& AI Research and Engineering Center, Suzhou 215123, China}
+
 
 \date{\today}
 
@@ -580,15 +586,182 @@ with $\lambda_{\mathrm{mse}}=\lambda_{\mathrm{ar}}=1$.
 All models are trained with the AdamW optimizer with initial learning rate $\eta_0=10^{-3}$ and weight decay $10^{-5}$. We use a step learning-rate scheduler that multiplies the learning rate by $0.96$ every $5$ epochs. The batch size is set to $4$ for all benchmarks, and training is performed for $500$ epochs unless otherwise specified. Gradient clipping with maximum norm $1.0$ is applied after backpropagation to improve stability. The random seed is fixed to $42$ for data splitting and model training.
 
 
+\subsection{Burgers' equation}
 
+We first consider the one-dimensional viscous Burgers benchmark, where the task is to learn the solution operator mapping an input function to the corresponding solution field on a uniform grid. The original data are downsampled to resolution $s=256$. The input consists of the physical field concatenated with the normalized coordinate channel, and the output is a scalar solution field. This benchmark provides a controlled setting to examine whether the proposed reflection--refraction--scattering block can capture nonlinear one-dimensional solution operators before being applied to higher-dimensional PDEs.
 
+Table~\ref{tab:burgers-results} reports the best validation relative $L^2$ error observed during training for the standard and efficient scattering variants. On this low-dimensional benchmark, the full pairwise scattering version achieves the smaller validation error. This behavior is consistent with the computational structure of the two scattering operators: when the spatial grid is relatively small, the quadratic full-kernel scattering operator remains affordable and can exploit exact pairwise spatial interactions. The efficient scattering variant substantially reduces the per-epoch training time, but its linearized global propagation introduces an approximation to the full pairwise kernel, leading to a larger error in the present configuration. This suggests that the efficient scattering layer is most advantageous in higher-dimensional or higher-resolution regimes where the quadratic kernel becomes memory- or time-limited.
 
+\begin{table}[t]
+\centering
+\caption{Burgers benchmark at resolution $s=256$. We report the best validation relative $L^2$ error observed during training.}
+\label{tab:burgers-results}
+\begin{tabular}{lcccc}
+\toprule
+Model & Scattering & Train loss & Val. relative $L^2$ & Time per epoch \\
+\midrule
+LiNO & full pairwise & $3.69\times 10^{-3}$ & $5.95\times 10^{-3}$ & 1m 54s \\
+LiNO & efficient & $2.82\times 10^{-3}$ & $1.09\times 10^{-2}$ & 28s \\
+\bottomrule
+\end{tabular}
+\end{table}
 
+For reference, we also compare with the published Burgers results at resolution $s=256$ from Table~3 of the Fourier Neural Operator paper~\cite{li2021fno}. These results are included as a standard reference point for operator learning on the one-dimensional viscous Burgers equation. We emphasize that the baseline numbers are copied from the original FNO paper, whereas the LiNO results are obtained from our current implementation and training protocol. The comparison indicates that LiNO attains competitive accuracy on the Burgers benchmark while using the same light-evolution block later employed for two-dimensional elliptic and time-dependent problems. In particular, the full scattering variant reaches a relative $L^2$ error of approximately $6.0\times10^{-3}$, improving upon the reference FNO result reported in~\cite{li2021fno}. The efficient variant also remains below the FNO reference error while reducing the per-epoch training time by roughly a factor of four compared with full pairwise scattering. These observations support the use of full scattering for low-dimensional tasks and efficient scattering for more demanding spatial resolutions.
 
+\begin{table}[t]
+\centering
+\caption{Reference comparison on the 1D Burgers benchmark at resolution $s=256$. The first block reports the published baselines from Table~3 of FNO~\cite{li2021fno}; the second block reports LiNO variants trained in the present implementation.}
+\label{tab:burgers-comparison}
+\begin{tabular}{lcc}
+\toprule
+Method & Operator type & Relative $L^2$ error \\
+\midrule
+NN    & pointwise neural network & 0.4714 \\
+GCN   & graph convolution & 0.3999 \\
+FCN   & fully convolutional network & 0.0958 \\
+PCANN & PCA-based neural operator & 0.0398 \\
+GNO   & graph neural operator & 0.0555 \\
+LNO   & low-rank neural operator & 0.0212 \\
+MGNO  & multipole graph neural operator & 0.0243 \\
+FNO   & Fourier neural operator & 0.0149 \\
+\midrule
+LiNO & full pairwise scattering & 0.0060 \\
+LiNO & efficient scattering & 0.0109 \\
+\bottomrule
+\end{tabular}
+\end{table}
 
+\subsection{Darcy flow}
 
+We next consider the two-dimensional Darcy flow benchmark, which is a standard coefficient-to-solution operator learning problem for elliptic PDEs. The input is a heterogeneous coefficient field, optionally augmented by the normalized spatial coordinates, and the output is the corresponding scalar elliptic solution. Compared with the Burgers benchmark, Darcy flow requires a two-dimensional spatial propagation mechanism and is therefore a more direct test of the scattering operator.
 
+\paragraph{Full pairwise scattering versus efficient scattering.}
 
+We first compare the full pairwise scattering layer and the efficient scattering layer at resolution $85\times85$. The purpose of this comparison is to isolate the computational effect of the scattering operator while keeping the rest of the LiNO architecture unchanged. The full pairwise scattering layer explicitly constructs global interactions between all spatial grid points, whereas the efficient version replaces the quadratic pairwise kernel by a linearized global propagation mechanism together with a local diffusion branch.
+
+Table~\ref{tab:darcy-scattering} reports the best validation relative $L^2$ errors and the logged computational costs. Both variants achieve essentially the same accuracy, with validation errors around $6\times10^{-3}$. However, their computational profiles differ substantially. The full pairwise scattering layer reaches a peak allocated CUDA memory of about $12.7$ GB and requires more than $16$ hours of training, whereas the efficient scattering layer reduces the peak allocated CUDA memory to about $3.23$ GB and completes training in less than $4$ hours. This comparison confirms that the efficient scattering design preserves the accuracy of global spatial propagation while substantially improving scalability on two-dimensional grids.
+
+\begin{table}[t]
+\centering
+\caption{Darcy flow at resolution $85\times85$: comparison between full pairwise scattering and efficient scattering. Both models use the same LiNO architecture except for the scattering layer. The memory column reports the peak allocated CUDA memory recorded during training.}
+\label{tab:darcy-scattering}
+\begin{tabular}{lccccc}
+\toprule
+Model & Scattering & Train loss & Val. relative $L^2$ & CUDA memory & Training time \\
+\midrule
+LiNO & full pairwise & $3.69\times 10^{-3}$ & $5.95\times 10^{-3}$ & 12.7 GB & 16h 32m 21s \\
+LiNO & efficient     & $6.02\times 10^{-3}$ & $6.01\times 10^{-3}$ & 3.23 GB & 3h 52m 50s \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{Resolution study.}
+
+We further evaluate the efficient-scattering LiNO on Darcy grids of increasing spatial resolution. The same architecture is instantiated at resolutions $85\times85$, $141\times141$, and $211\times211$, without changing the light-evolution block. This experiment is designed to examine whether the proposed architecture remains stable when the number of spatial degrees of freedom increases.
+
+Table~\ref{tab:darcy-resolution} summarizes the results. Across the completed resolutions, the validation relative $L^2$ error remains at the order of $10^{-3}$. The error increases mildly from resolution $s = 85$ to $s =211$, while the training time grows significantly with resolution. This behavior is expected: higher-resolution inputs contain finer coefficient interfaces and solution structures, but the model width and depth are kept fixed. Importantly, the same efficient-scattering LiNO remains trainable at these resolutions, whereas a full pairwise kernel would become increasingly expensive because its cost scales quadratically with the number of grid points.
+
+\begin{table}[t]
+\centering
+\caption{Resolution study for Darcy flow using efficient scattering.}
+\label{tab:darcy-resolution}
+\begin{tabular}{lccc}
+\toprule
+Resolution & Train loss & Val. relative $L^2$ & Training time \\
+\midrule
+$85\times85$   & $3.69\times 10^{-3}$ & $5.95\times 10^{-3}$ & 3h 53m 50s \\
+$141\times141$ & $3.32\times 10^{-3}$ & $6.43\times 10^{-3}$ & 22h 1m 59s \\
+$211\times211$ & $3.83\times 10^{-3}$ & $6.90\times 10^{-3}$ & 38h 35m 50s \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The resolution study highlights the intended role of the efficient scattering layer. In the Darcy problem, long-range information exchange is necessary because the elliptic solution depends globally on the coefficient field. At the same time, a direct full-kernel construction over all grid points rapidly becomes impractical. The efficient scattering layer provides a compromise: its linearized global branch propagates information over the entire domain, while the local diffusion branch restores short-range spatial interaction. This combination is particularly suitable for elliptic coefficient-to-solution maps, where both global coupling and local heterogeneity are important.
+
+\begin{figure}[t]
+\centering
+\fbox{%
+\begin{minipage}[c][0.30\textheight][c]{0.92\textwidth}
+\centering
+Placeholder for Darcy qualitative results: coefficient field, reference solution, LiNO prediction, and absolute error.
+\end{minipage}}
+\caption{Qualitative prediction on the Darcy benchmark. The final version will display the input coefficient field, reference solution, LiNO prediction, and pointwise absolute error for representative validation samples.}
+\label{fig:darcy-qualitative}
+\end{figure}
+
+For reference, we additionally compare with the published Darcy flow results from Table~4 of the Fourier Neural Operator~\cite{li2021fno}. The baseline results are copied from the original paper and are reported at resolutions $s=85,141,211,421$. 
+
+\begin{table}[t]
+\centering
+\caption{Reference comparison on the Darcy flow benchmark. The first block reports the published baselines from FNO~\cite{li2021fno}; the second block reports LiNO results from the present implementation. All entries are relative $L^2$ errors.}
+\label{tab:darcy-fno-comparison}
+\begin{tabular}{lcccc}
+\toprule
+Method & $s=85$ & $s=141$ & $s=211$ & $s=421$ \\
+\midrule
+FCN   & 0.0253 & 0.0493 & 0.0727 & 0.1097 \\
+PCANN & 0.0299 & 0.0298 & 0.0298 & 0.0299 \\
+RBM   & 0.0244 & 0.0251 & 0.0255 & 0.0259 \\
+GNO   & 0.0346 & 0.0332 & 0.0342 & 0.0369 \\
+LNO   & 0.0520 & 0.0461 & 0.0445 & -- \\
+MGNO  & 0.0416 & 0.0428 & 0.0428 & 0.0420 \\
+FNO   & 0.0108 & 0.0109 & 0.0109 & 0.0098 \\
+\midrule
+LiNO with efficient scattering     & 0.0060 & 0.0064 & 0.0069 & -- \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Two-dimensional Navier--Stokes dynamics}
+
+Finally, we consider autoregressive prediction for two-dimensional Navier--Stokes vorticity dynamics. The dataset consists of vorticity trajectories sampled on a $64\times64$ spatial grid. Compared with the stationary Burgers and Darcy benchmarks, this problem is more challenging because the learned operator is repeatedly composed in time, so small one-step prediction errors may accumulate along the rollout trajectory.
+Following the standard autoregressive neural-operator protocol, the first $T_{\mathrm{in}}=10$ vorticity frames are used as the temporal history. At each rollout step, LiNO takes the most recent $10$ observed or predicted frames, concatenated with two normalized coordinate channels, and predicts the next vorticity field. Therefore, the input tensor has shape
+\begin{equation}
+    B\times 64\times 64\times 12,
+\end{equation}
+where the $12$ channels consist of $10$ temporal history channels and two coordinate channels. The output tensor at each step has shape
+\begin{equation}
+    B\times 64\times 64\times 1.
+\end{equation}
+The model is rolled out autoregressively for $T_{\mathrm{out}}=10$ steps with step size $1$. We use $2000$ trajectories for training and $1000$ trajectories for validation. The same LiNO configuration as in the previous experiments is adopted, with latent width $M=128$, depth $8$, and efficient scattering.
+
+Since the Navier--Stokes task is time-dependent, we report both the one-step relative error and the full-rollout relative error. The one-step error measures the average prediction accuracy at individual autoregressive steps, whereas the rollout error measures the accumulated discrepancy over the entire predicted trajectory. The best validation checkpoint achieves
+\begin{equation}
+    \mathrm{ValStepError}=2.80\times 10^{-3},
+    \qquad
+    \mathrm{ValRolloutError}=2.92\times 10^{-3}.
+\end{equation}
+At the final training epoch, the corresponding validation errors are
+\begin{equation}
+    \mathrm{ValStepError}=3.17\times 10^{-3},
+    \qquad
+    \mathrm{ValRolloutError}=3.35\times 10^{-3}.
+\end{equation}
+Thus, the best checkpoint is selected according to the validation rollout error rather than the final epoch.
+
+These results indicate that the efficient-scattering LiNO remains stable under autoregressive composition. The small gap between the one-step error and the full-rollout error suggests that error accumulation over the ten-step horizon is limited in the present configuration. This behavior is important for time-dependent PDE learning: a model can achieve low one-step error but still produce unstable rollouts if the learned update amplifies perturbations over time. In contrast, the observed rollout error remains on the same order as the step-wise error, indicating that the light-evolution block provides a stable spatial propagation mechanism when repeatedly applied in time.
+
+\begin{figure}[t]
+\centering
+\fbox{%
+\begin{minipage}[c][0.32\textheight][c]{0.92\textwidth}
+\centering
+Placeholder for Navier--Stokes rollout visualization: reference vorticity, LiNO prediction, and absolute error at several future time steps.
+\end{minipage}}
+\caption{Autoregressive prediction on the two-dimensional Navier--Stokes benchmark. The final version will show representative reference vorticity fields, LiNO predictions, and absolute errors at selected rollout steps.}
+\label{fig:ns-rollout}
+\end{figure}
+
+\begin{figure}[t]
+\centering
+\fbox{%
+\begin{minipage}[c][0.26\textheight][c]{0.92\textwidth}
+\centering
+Placeholder for Navier--Stokes temporal error curve: relative $L^2$ error versus rollout step.
+\end{minipage}}
+\caption{Temporal error behavior of efficient LiNO on the Navier--Stokes benchmark. The final version will plot the relative $L^2$ prediction error along the autoregressive rollout horizon.}
+\label{fig:ns-temporal-error}
+\end{figure}
 
 
 
@@ -615,73 +788,169 @@ All models are trained with the AdamW optimizer with initial learning rate $\eta
 
 \section{Conclusion}
 
-We have presented the formulation of a Light-inspired neural operator for parametric PDEs. The proposed method decomposes latent evolution into reflection, refraction, and scattering, thereby separating local feature transformation from nonlocal spatial propagation. The standard scattering layer realizes a normalized nonlinear kernel with relative positional bias, whereas the efficient scattering layer combines positive-feature linear attention with a local diffusion branch. This construction provides a mathematically transparent and implementation-ready neural-operator architecture for one- and two-dimensional PDE surrogate modeling.
+We have presented a Light-inspired Neural Operator (LiNO) for learning solution operators of parametric PDEs. The proposed architecture organizes latent evolution through three optical mechanisms: reflection, refraction, and scattering. Reflection and refraction perform adaptive pointwise transformations in the latent feature space, enabling local reorientation and anisotropic modulation of hidden states, while scattering realizes nonlocal spatial propagation through a learned kernel over the physical domain. The standard scattering layer implements a normalized nonlinear kernel with relative positional bias, whereas the efficient scattering layer combines positive-feature linearized global propagation with a local diffusion branch. This design separates local feature transformation from spatial information exchange, leading to a mathematically transparent and implementation-compatible neural-operator framework for one- and two-dimensional PDE surrogate modeling.
+
+Numerical experiments on Burgers' equation, Darcy flow, and two-dimensional Navier--Stokes dynamics demonstrate that the same light-evolution block can be instantiated across stationary, elliptic, and time-dependent PDE benchmarks. The full pairwise scattering layer is effective on low-dimensional problems where exact global interactions are affordable, while the efficient scattering layer substantially improves scalability on two-dimensional grids without sacrificing accuracy in the tested Darcy and Navier--Stokes settings. These results suggest that optical transport principles provide a useful inductive bias for constructing interpretable and modular neural operators.
+
+Several directions remain for future work. First, the present implementation focuses mainly on structured Cartesian grids. Extending LiNO to complex geometries, irregular domains, and moving boundaries is an important next step for applications in engineering simulation and multiphysics modeling. This may require replacing grid-based scattering with mesh-, graph-, or point-cloud-based propagation operators, so that the light-inspired evolution can act directly on unstructured discretizations. Second, the current scattering mechanisms can be further generalized to handle adaptive resolution, multiscale refinement, and heterogeneous sampling densities. Such extensions would make LiNO more suitable for high-resolution simulations with localized sharp layers, interfaces, or turbulent structures. Third, it would be valuable to incorporate additional physical constraints, such as conservation laws, boundary conditions, symmetry, equivariance, or energy stability, into the reflection, refraction, and scattering components. Finally, a deeper theoretical analysis of approximation properties, stability under autoregressive rollout, and resolution-invariant generalization would help clarify when and why light-inspired latent transport improves neural-operator learning.
+
+Overall, LiNO provides an initial step toward physically motivated neural operators whose internal mechanisms are not merely black-box transformations, but are structured according to interpretable geometric and transport principles. We expect that this perspective can be further developed for complex-domain PDEs, point-cloud-based scientific data, and large-scale surrogate modeling of realistic physical systems.
+
+\section*{Acknowledgements}
+Jingrun Chen is supported by NSFC Major Research Plan -  Interpretable and General-purpose Next-generation Artificial Intelligence (Nos 92570001 and 92370205), NSFC grant 12425113, and the Key Laboratory of the Ministry of Education for Mathematical Foundations and Applications of Digital Technology, University of Science and Technology of China. Keke Wu is supported by the China Postdoctoral Science Foundation under Grant Number 2025M773105 and the Jiangsu Funding Program for Excellent Postdoctoral Talent.
+
+\appendix
+
+\section{Appendix}
+\label{app:benchmark-pdes}
+
+This appendix summarizes the PDE benchmarks used in the numerical experiments. 
+For each problem, we specify the underlying equation, the initial and boundary 
+conditions, and the operator-learning map approximated by LiNO.
+
+\subsection{One-dimensional Burgers' equation}
+\label{app:burgers}
+
+The first benchmark is the one-dimensional viscous Burgers' equation on the unit interval,
+\begin{equation}
+    \partial_t u(x,t)
+    +
+    \partial_x\left(\frac{1}{2}u(x,t)^2\right)
+    =
+    \nu \partial_{xx}u(x,t),
+    \qquad
+    (x,t)\in (0,1)\times(0,T].
+    \label{eq:app-burgers}
+\end{equation}
+The initial condition is
+\begin{equation}
+    u(x,0)=u_0(x),
+    \qquad x\in(0,1),
+    \label{eq:app-burgers-ic}
+\end{equation}
+where $u_0$ is sampled from a prescribed random function distribution. 
+Periodic boundary conditions are imposed,
+\begin{equation}
+    u(0,t)=u(1,t),
+    \qquad
+    \partial_x u(0,t)=\partial_x u(1,t),
+    \qquad t\in[0,T].
+    \label{eq:app-burgers-bc}
+\end{equation}
+In the operator-learning setting, the target map is the solution operator
+\begin{equation}
+    \mathcal{G}_{\mathrm{Burgers}}:
+    u_0 \mapsto u(\cdot,T),
+    \label{eq:app-burgers-map}
+\end{equation}
+or, more generally, the map from an input function to its corresponding solution field 
+on the discretized spatial grid. In our experiments, the spatial field is downsampled to 
+resolution $s=256$, and the normalized coordinate channel is concatenated to the input.
+
+\subsection{Two-dimensional Darcy flow}
+\label{app:darcy}
+
+The second benchmark is a two-dimensional elliptic Darcy flow problem on the unit square
+$\Omega=(0,1)^2$. Given a heterogeneous permeability coefficient $a(x)$, the pressure 
+or potential field $u(x)$ satisfies
+\begin{equation}
+    -\nabla\cdot\big(a(x)\nabla u(x)\big)=f(x),
+    \qquad x\in\Omega,
+    \label{eq:app-darcy}
+\end{equation}
+with homogeneous Dirichlet boundary condition
+\begin{equation}
+    u(x)=0,
+    \qquad x\in\partial\Omega.
+    \label{eq:app-darcy-bc}
+\end{equation}
+Here $a(x)$ is the input coefficient field and $f(x)$ is a fixed forcing term. 
+Following the standard Darcy benchmark, the coefficient field is piecewise smooth or 
+piecewise constant and may contain sharp interfaces. The solution depends globally on 
+the coefficient due to the elliptic nature of \eqref{eq:app-darcy}.
+
+The corresponding operator-learning task is to approximate the coefficient-to-solution map
+\begin{equation}
+    \mathcal{G}_{\mathrm{Darcy}}:
+    a \mapsto u.
+    \label{eq:app-darcy-map}
+\end{equation}
+In our experiments, the input tensor consists of the coefficient field concatenated with 
+two normalized coordinate channels,
+\begin{equation}
+    \big(a(x,y),x,y\big),
+\end{equation}
+and the output is the scalar solution field $u(x,y)$. We evaluate the model at multiple 
+resolutions, including $85^2$, $141^2$, $211^2$, and $421^2$, to test the scalability of the efficient scattering layer.
+
+\subsection{Two-dimensional incompressible Navier--Stokes equation}
+\label{app:navier-stokes}
+
+The third benchmark is the two-dimensional incompressible Navier--Stokes equation in 
+vorticity form on a periodic domain $\Omega=(0,1)^2$. The vorticity $\omega(x,t)$ satisfies
+\begin{equation}
+    \partial_t \omega(x,t)
+    +
+    v(x,t)\cdot\nabla \omega(x,t)
+    =
+    \nu \Delta \omega(x,t)
+    +
+    f(x),
+    \qquad
+    (x,t)\in \Omega\times(0,T],
+    \label{eq:app-ns-vorticity}
+\end{equation}
+where $v=(v_1,v_2)$ is the incompressible velocity field, $\nu>0$ is the viscosity, and 
+$f$ is a prescribed forcing term. The velocity is divergence-free,
+\begin{equation}
+    \nabla\cdot v(x,t)=0,
+    \label{eq:app-ns-incompressible}
+\end{equation}
+and is recovered from the vorticity through the stream function $\psi$,
+\begin{equation}
+    v = \nabla^\perp \psi
+    =
+    \big(\partial_y\psi,-\partial_x\psi\big),
+    \qquad
+    -\Delta \psi = \omega.
+    \label{eq:app-ns-stream}
+\end{equation}
+The initial condition is
+\begin{equation}
+    \omega(x,0)=\omega_0(x),
+    \qquad x\in\Omega,
+    \label{eq:app-ns-ic}
+\end{equation}
+and periodic boundary conditions are imposed in both spatial directions,
+\begin{equation}
+    \omega(x+e_j,t)=\omega(x,t),
+    \qquad j=1,2,
+    \qquad t\in[0,T],
+    \label{eq:app-ns-bc}
+\end{equation}
+where $e_1=(1,0)$ and $e_2=(0,1)$.
+
+The operator-learning task is time-dependent. Given a temporal history of vorticity fields,
+\begin{equation}
+    \big(\omega(\cdot,t_0),\omega(\cdot,t_1),\ldots,
+    \omega(\cdot,t_{T_{\mathrm{in}}-1})\big),
+\end{equation}
+the model predicts future vorticity fields autoregressively. In our experiments, 
+$T_{\mathrm{in}}=10$, and the model predicts one future frame at a time. At each rollout step, 
+the input consists of the most recent ten observed or predicted vorticity frames concatenated 
+with two normalized coordinate channels. The corresponding one-step map can be written as
+\begin{equation}
+    \mathcal{G}_{\mathrm{NS}}:
+    \big(\omega_{m-T_{\mathrm{in}}+1},\ldots,\omega_m\big)
+    \mapsto
+    \omega_{m+1}.
+    \label{eq:app-ns-map}
+\end{equation}
+Repeated application of $\mathcal{G}_{\mathrm{NS}}$ yields the full autoregressive rollout.
 
 
 
 
-
-
-
-
-
-\begin{thebibliography}{99}
-
-\bibitem{lu2021deeponet}
-L.~Lu, P.~Jin, and G.~E. Karniadakis.
-\newblock Learning nonlinear operators via DeepONet based on the universal approximation theorem of operators.
-\newblock \emph{Nature Machine Intelligence}, 3:218--229, 2021.
-
-\bibitem{li2021fno}
-Z.~Li, N.~Kovachki, K.~Azizzadenesheli, B.~Liu, K.~Bhattacharya, A.~Stuart, and A.~Anandkumar.
-\newblock Fourier neural operator for parametric partial differential equations.
-\newblock In \emph{International Conference on Learning Representations}, 2021.
-
-\bibitem{lu2022comprehensive}
-L.~Lu, X.~Meng, S.~Cai, Z.~Mao, S.~Goswami, Z.~Zhang, and G.~E. Karniadakis.
-\newblock A comprehensive and fair comparison of two neural operators (with practical extensions) based on FAIR data.
-\newblock \emph{Computer Methods in Applied Mechanics and Engineering}, 393:114778, 2022.
-
-\bibitem{cao2023laplace}
-Q.~Cao, S.~Goswami, and G.~E. Karniadakis.
-\newblock LNO: Laplace neural operator for solving differential equations.
-\newblock \emph{arXiv preprint arXiv:2303.10528}, 2023.
-
-\bibitem{li2020gno}
-Z.~Li, N.~Kovachki, K.~Azizzadenesheli, B.~Liu, K.~Bhattacharya, A.~Stuart, and A.~Anandkumar.
-\newblock Neural operator: Graph kernel network for partial differential equations.
-\newblock \emph{arXiv preprint arXiv:2003.03485}, 2020.
-
-\bibitem{li2023pcno}
-C.~Zeng, Y.~Zhang, J.~Zhou, Y.~Wang, Z.~Wang, Y.~Liu, L.~Wu, and D.~Z. Huang.
-\newblock Point cloud neural operator for parametric PDEs on complex and variable geometries.
-\newblock \emph{Computer Methods in Applied Mechanics and Engineering}, 443:118022, 2025.
-
-\bibitem{xiong2024koopman}
-W.~Xiong, X.~Huang, Z.~Zhang, R.~Deng, P.~Sun, and Y.~Tian.
-\newblock Koopman neural operator as a mesh-free solver of nonlinear partial differential equations.
-\newblock \emph{Journal of Computational Physics}, 113194, 2024.
-
-\bibitem{wu2024transolver}
-H.~Wu, H.~Luo, H.~Wang, J.~Wang, and M.~Long.
-\newblock Transolver: A fast transformer solver for PDEs on general geometries.
-\newblock In \emph{International Conference on Machine Learning}, 2024.
-
-\bibitem{zhou2026transolver3}
-H.~Zhou, H.~Wu, H.~Shangguan, Y.~Ma, H.~Weng, J.~Wang, and M.~Long.
-\newblock Transolver-3: Scaling up transformer solvers to industrial-scale geometries.
-\newblock \emph{arXiv preprint arXiv:2602.04940}, 2026.
-
-\bibitem{vaswani2017attention}
-A.~Vaswani, N.~Shazeer, N.~Parmar, J.~Uszkoreit, L.~Jones, A.~N. Gomez, L.~Kaiser, and I.~Polosukhin.
-\newblock Attention is all you need.
-\newblock In \emph{Advances in Neural Information Processing Systems}, 2017.
-
-\bibitem{katharopoulos2020transformers}
-A.~Katharopoulos, A.~Vyas, N.~Pappas, and F.~Fleuret.
-\newblock Transformers are RNNs: Fast autoregressive transformers with linear attention.
-\newblock In \emph{International Conference on Machine Learning}, 2020.
-
-\end{thebibliography}
-
+\bibliographystyle{unsrt} 
+\bibliography{references.bib}
 \end{document}
