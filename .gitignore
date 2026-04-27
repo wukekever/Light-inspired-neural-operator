@@ -12,9 +12,6 @@ outputs/
 *.pt
 *.pth
 
-# Large datasets (Darcy2D)
-src/datasets/Darcy2D/*.mat
-
 # Jupyter
 .ipynb_checkpoints/
 

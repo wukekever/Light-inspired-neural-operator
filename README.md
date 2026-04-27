@@ -1,11 +1,23 @@
 <!-- # Let There Be Light: Reflection, Refraction and Scattering for Neural Operators of Parametric PDEs -->
+
+
+<p align="center">
+  <img src="assets/transparent-lino-logo.png" alt="LiNO logo" width="128">
+<p>
+
+<!-- <p align="center">
+  <img src="assets/rainbow_title.png" alt="LiNO" height="60">
+<p> -->
+
 ![](assets/rainbow_title.png)
+
 <!-- <p align="center">
   <img src="assets/ustc-logo.png" alt="USTC Logo" height="50">
   &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
   <img src="assets/transparent-ustc-sz-logo.png" alt="USTCSZ Logo" height="40"><br>
   <sub><b>¹ University of Science and Technology of China (USTC) </b> &nbsp;&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;&nbsp; <b>² Suzhou Institute for Advanced Research (USTC-SZ) </b></sub>
 <p> -->
+
 <p align="center">
   <img src="assets/transparent-ustc-logo.png" alt="USTC Logo" height="40">
 <p>
@@ -43,7 +55,7 @@ pip install -r requirements.txt
 
 <details>
   <summary> Dependencies (click to expand): </summary>
-  
+
   - Python >= 3.10
   - torch >= 2.0.0
   - numpy >= 1.24.0
@@ -85,7 +97,7 @@ tree
 .
 ├── README.md
 ├── assets
-│   ├── framework-2.png
+│   ├── framework.png
 │   ├── rainbow_title.png
 │   ├── transparent-ustc-logo.png
 │   ├── transparent-ustc-sz-logo.png
