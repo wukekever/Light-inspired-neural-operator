@@ -2,7 +2,7 @@
 ## Working directory: Light-inspired-neural-operator
 ## Usage: bash ./scripts/run_eval_navierstokes2d.sh
 
-LNO_PATH="2026-04-21_23-39-12_light_neural_operator_version_1"
+LNO_PATH="2026-04-21_23-39-12_light_neural_operator_version_1" # efficient mode: O(NdM) scattering
 CKPT_PATH="../outputs/${LNO_PATH}/ckpts/best_model.pt"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

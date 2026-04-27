@@ -47,8 +47,8 @@ def get_parser():
     parser.add_argument("--tag", type=str, default="version_1")
 
     parser.add_argument(
-        "--target-size", type=int, nargs=2, default=[85, 85]
-    )  # downsample the data into 85 × 85 resolution
+        "--target-size", type=int, nargs=2, default=[421, 421]
+    )  # downsample the data into 85 × 85 -> 141 × 141 -> 211 x 211 -> 421 x 421 resolution
     parser.add_argument("--n-train", type=int, default=800)
     parser.add_argument("--n-val", type=int, default=224)
     parser.add_argument("--no-coord", action="store_true")

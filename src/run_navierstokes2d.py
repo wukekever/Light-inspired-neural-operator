@@ -52,7 +52,7 @@ def get_parser():
     parser.add_argument(
         "--target-size", type=int, nargs=2, default=[64, 64]
     )  # downsample the data into 64 × 64 resolution
-    parser.add_argument("--n-train", type=int, default=4000)
+    parser.add_argument("--n-train", type=int, default=2000)
     parser.add_argument("--n-val", type=int, default=1000)
     parser.add_argument("--t-in", type=int, default=10)
     parser.add_argument("--t-out", type=int, default=10)
