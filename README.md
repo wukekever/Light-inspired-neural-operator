@@ -113,6 +113,7 @@ tree
 │   ├── run_eval_burgers1d.sh
 │   ├── run_eval_darcy2d.sh
 │   ├── run_eval_navierstokes2d.sh
+│   ├── run_eval_temporal_error_navierstokes2d.sh
 │   ├── run_train_burgers1d.sh
 │   ├── run_train_darcy2d.sh
 │   └── run_train_navierstokes2d.sh
@@ -130,9 +131,10 @@ tree
     │   ├── datatest.ipynb
     │   ├── __init__.py
     │   ├── NavierStokes2D
-    │   │   └── NavierStokes_V1e-5_N1200_T20.mat
+    │   │   └── ns_V1e-3_N5000_T50.mat
     │   └── navierstokes2d.py
     ├── eval.py
+    ├── eval_temporal_error.py
     ├── logger.py
     ├── modules
     │   └── model.py
