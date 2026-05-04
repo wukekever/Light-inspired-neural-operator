@@ -11,23 +11,20 @@
 
 ![](assets/rainbow_title.png)
 
-<!-- <p align="center">
-  <img src="assets/ustc-logo.png" alt="USTC Logo" height="50">
-  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-  <img src="assets/transparent-ustc-sz-logo.png" alt="USTCSZ Logo" height="40"><br>
-  <sub><b>¹ University of Science and Technology of China (USTC) </b> &nbsp;&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;&nbsp; <b>² Suzhou Institute for Advanced Research (USTC-SZ) </b></sub>
-<p> -->
-
 <p align="center">
-  <img src="assets/transparent-ustc-logo.png" alt="USTC Logo" height="40">
+  <img src="assets/transparent-ustc-logo.png" alt="USTC Logo" height="30">
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  <img src="assets/transparent-pku-logo.png" alt="PKU Logo" height="30"><br>
+  <sub><b>¹ University of Science and Technology of China (USTC) </b> &nbsp;&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;&nbsp; <b>² Peking University (PKU) </b></sub>
 <p>
 
-![](assets/framework-2.png)
+
+![](assets/framework.png)
 
 #### **Title:** Let There Be Light: Reflection, Refraction and Scattering for PDE Neural Operators
 
-#### **Authors:** Keke Wu and Jingrun Chen
-`TODO: Update the arXiv link and other links after the paper is published`
+#### **Authors:** Keke Wu, Yixuan Zhang and Jingrun Chen
+`TODO: Update the arXiv link`
  
 [![ArXiv](https://img.shields.io/badge/arXiv-Paper-b31b1b?logo=arxiv&logoColor=white)](https://arxiv.org/abs/2111.02541) 
 
@@ -95,16 +92,19 @@ Examples:
 ```bash
 tree
 .
-├── README.md
 ├── assets
-│   ├── framework.png
-│   ├── rainbow_title.png
-│   ├── transparent-ustc-logo.png
-│   ├── transparent-ustc-sz-logo.png
-│   └── ustc-logo.png
+│   ├── framework.png
+│   ├── rainbow_title.png
+│   ├── transparent-lino-logo.png
+│   ├── transparent-pku-logo.png
+│   └── transparent-ustc-logo.png
 ├── doc
 │   └── main.tex
+├── LICENSE
 ├── make_title.py
+├── outputs
+├── pyproject.toml
+├── README.md
 ├── requirements.txt
 ├── scripts
 │   ├── download_burgers1d.sh
@@ -118,12 +118,19 @@ tree
 │   └── run_train_navierstokes2d.sh
 └── src
     ├── datasets
-    │   ├── __init__.py
+    │   ├── Burgers1D
+    │   │   └── burgers_data_R10.mat
     │   ├── burgers1d.py
     │   ├── common.py
+    │   ├── Darcy2D
+    │   │   ├── piececonst_r241_N1024_smooth1.mat
+    │   │   └── piececonst_r241_N1024_smooth2.mat
     │   ├── darcy2d.py
     │   ├── data_infos.md
     │   ├── datatest.ipynb
+    │   ├── __init__.py
+    │   ├── NavierStokes2D
+    │   │   └── NavierStokes_V1e-5_N1200_T20.mat
     │   └── navierstokes2d.py
     ├── eval.py
     ├── logger.py
@@ -140,7 +147,7 @@ For training and evaluation, we provide separate shell scripts for each dataset.
 ```bash
 # Train on Darcy2D Problem
 bash ./scripts/run_train_darcy2d.sh
-# Evaluate on Darcy2D Problem after training
+# Evaluate on Darcy2D Problem after training (Replace the **checkpoint path** in the script!)
 bash ./scripts/run_eval_darcy2d.sh
 ```
 
@@ -152,7 +159,7 @@ If you find this work useful, please cite:
 ```bibtex
 @article{wu2026light,
     title={Let There Be Light: Reflection, Refraction and Scattering for PDE Neural Operators},
-    author={Keke Wu, Jingrun Chen},
+    author={Keke Wu, Yixuan Zhang and Jingrun Chen},
     year={2026},
     eprint={},
     archivePrefix={arXiv},

@@ -47,7 +47,7 @@ def get_parser():
     parser.add_argument("--tag", type=str, default="version_1")
 
     parser.add_argument(
-        "--target-size", type=int, nargs=2, default=[421, 421]
+        "--target-size", type=int, nargs=2, default=[85, 85]
     )  # downsample the data into 85 × 85 -> 141 × 141 -> 211 x 211 -> 421 x 421 resolution
     parser.add_argument("--n-train", type=int, default=800)
     parser.add_argument("--n-val", type=int, default=224)
@@ -56,14 +56,14 @@ def get_parser():
     parser.add_argument(
         "--batch-size", type=int, default=4
     )  # batch size = 4 (Transolver)
-    parser.add_argument("--num-workers", type=int, default=2)
+    parser.add_argument("--num-workers", type=int, default=0)
 
     parser.add_argument("--in-channels", type=int, default=3)  # coeff + x + y
     parser.add_argument("--out-channels", type=int, default=1)
     parser.add_argument(
         "--num-features", type=int, default=128
     )  # num of features = 128 (Transolver)
-    parser.add_argument("--depth", type=int, default=8)  # depth = 8 (Transolver)
+    parser.add_argument("--depth", type=int, default=8)  # depth = 8
     parser.add_argument(
         "--scattering-type",
         type=str,
