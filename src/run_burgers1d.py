@@ -63,7 +63,7 @@ def get_parser():
     parser.add_argument(
         "--num-features", type=int, default=128
     )  # num of features = 128 (Transolver)
-    parser.add_argument("--depth", type=int, default=8)  # depth = 8 (Transolver)
+    parser.add_argument("--depth", type=int, default=8)  # depth = 8
     parser.add_argument(
         "--scattering-type",
         type=str,
@@ -93,7 +93,7 @@ def get_parser():
     )  # print logs every N steps
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument(
-        "--device", type=str, default="cuda:3" if torch.cuda.is_available() else "cpu"
+        "--device", type=str, default="cuda:0" if torch.cuda.is_available() else "cpu"
     )
     return parser.parse_args()
 

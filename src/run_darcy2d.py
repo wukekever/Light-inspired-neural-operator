@@ -93,7 +93,7 @@ def get_parser():
     )  # print logs every N steps
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument(
-        "--device", type=str, default="cuda:3" if torch.cuda.is_available() else "cpu"
+        "--device", type=str, default="cuda:0" if torch.cuda.is_available() else "cpu"
     )
     return parser.parse_args()
 

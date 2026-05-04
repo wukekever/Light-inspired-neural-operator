@@ -62,7 +62,7 @@ def main(args) -> None:
     device = torch.device(
         args.device
         if args.device
-        else ("cuda:3" if torch.cuda.is_available() else "cpu")
+        else ("cuda:0" if torch.cuda.is_available() else "cpu")
     )
 
     log_info(f"Loading checkpoint from {ckpt_path}")
