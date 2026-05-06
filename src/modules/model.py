@@ -1,10 +1,10 @@
 #############################################################################################################################################
-# _     _       _     _        _                 _              _   _   _                      _    ___                       _             #
-# | |   (_) __ _| |__ | |_     (_)_ __  ___ _ __ (_)_ __ ___  __| | | \ | | ___ _   _ _ __ __ _| |  / _ \ _ __   ___ _ __ __ _| |_ ___  _ __ #
-# | |   | |/ _` | '_ \| __|____| | '_ \/ __| '_ \| | '__/ _ \/ _` | |  \| |/ _ \ | | | '__/ _` | | | | | | '_ \ / _ \ '__/ _` | __/ _ \| '__|#
-# | |___| | (_| | | | | ||_____| | | | \__ \ |_) | | | |  __/ (_| | | |\  |  __/ |_| | | | (_| | | | |_| | |_) |  __/ | | (_| | || (_) | |   #
-# |_____|_|\__, |_| |_|\__|    |_|_| |_|___/ .__/|_|_|  \___|\__,_| |_| \_|\___|\__,_|_|  \__,_|_|  \___/| .__/ \___|_|  \__,_|\__\___/|_|   #
-#         |___/                           |_|                                                           |_|                                 #
+#  _     _       _     _        _                 _              _   _   _                      _    ___                       _
+# | |   (_) __ _| |__ | |_     (_)_ __  ___ _ __ (_)_ __ ___  __| | | \ | | ___ _   _ _ __ __ _| |  / _ \ _ __   ___ _ __ __ _| |_ ___  _ __
+# | |   | |/ _` | '_ \| __|____| | '_ \/ __| '_ \| | '__/ _ \/ _` | |  \| |/ _ \ | | | '__/ _` | | | | | | '_ \ / _ \ '__/ _` | __/ _ \| '__|
+# | |___| | (_| | | | | ||_____| | | | \__ \ |_) | | | |  __/ (_| | | |\  |  __/ |_| | | | (_| | | | |_| | |_) |  __/ | | (_| | || (_) | |
+# |_____|_|\__, |_| |_|\__|    |_|_| |_|___/ .__/|_|_|  \___|\__,_| |_| \_|\___|\__,_|_|  \__,_|_|  \___/| .__/ \___|_|  \__,_|\__\___/|_|
+#         |___/                           |_|                                                           |_|
 
 """
 Light-inspired neural operator building blocks for 1D and 2D PDE problems.
@@ -28,15 +28,17 @@ class ReflectionLayer(nn.Module):
     Feature-space reflection on the latent dimension ``M``.
 
     Input:
-        ``x``: ``[B, *spatial, M]``
+        x: [B, *spatial, M]
 
-    At each spatial index, the latent vector is reflected about an adaptive
-    unit direction ``v_hat`` derived from ``x``:
+    The reflection operator is implemented in a matrix-free Householder form:
+        R(x) = x - 2 <x, v_hat> v_hat,
 
-        ``R(x) = x - 2 <x, v_hat> v_hat``
+    which is equivalent to applying
+        H = I - 2 v_hat v_hat^T
 
-    This acts pointwise over space and only mixes along ``M``, preserving
-    spatial locality in the sense that no cross-site coupling is introduced.
+    without explicitly constructing the dense M x M Householder matrix.
+    The transform is pointwise over the spatial domain and acts only along
+    the latent feature dimension.
     """
 
     def __init__(self, num_features: int):
@@ -47,8 +49,10 @@ class ReflectionLayer(nn.Module):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Apply reflection in feature space; shape is preserved."""
         v = self.v_proj(x)
-        v_hat = v / (torch.norm(v, dim=-1, keepdim=True) + self.eps)
+        v_hat = F.normalize(v, p=2, dim=-1, eps=self.eps)
+        # proj = <x, v_hat>
         proj = torch.sum(x * v_hat, dim=-1, keepdim=True)
+        # Matrix-free Householder reflection: R(x) = x - 2 <x, v_hat> v_hat
         return x - 2.0 * proj * v_hat
 
 
@@ -57,15 +61,16 @@ class RefractionLayer(nn.Module):
     Feature-space refraction on the latent dimension ``M``.
 
     Input:
-        ``x``: ``[B, *spatial, M]``
+        x: [B, *spatial, M]
 
-    Decompose ``x`` into components parallel and perpendicular to an adaptive
-    direction ``v_hat``, then rescale the perpendicular part:
+    The refraction operator is implemented in a matrix-free form:
+        T(x) = x + (eta - 1) <x, v_hat> v_hat,
 
-        ``x = x_parallel + x_perp``, ``T(x) = x_parallel + eta * x_perp``
+    which is equivalent to
+        T(x) = x_parallel + eta * x_perp,
 
-    Here ``eta = 1 + rate_range * tanh(refractive_param)`` stays near 1. The
-    transform mixes only along ``M`` at each spatial location.
+    but avoids explicitly constructing x_parallel. The transform is pointwise
+    over the spatial domain and acts only along the latent feature dimension.
     """
 
     def __init__(self, num_features: int, rate_range: float = 0.25):
@@ -77,12 +82,23 @@ class RefractionLayer(nn.Module):
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Apply refraction in feature space; shape is preserved."""
+        # # The original formulation computes the parallel and perpendicular components
+        # v = self.v_proj(x)
+        # v_hat = v / (torch.norm(v, dim=-1, keepdim=True) + self.eps)
+        # x_perp = torch.sum(x * v_hat, dim=-1, keepdim=True) * v_hat
+        # x_parallel = x - x_perp
+        # eta = 1.0 + self.rate_range * torch.tanh(self.refractive_param)
+        # return x_parallel + eta * x_perp
+
+        # The refactored matrix-free implementation avoids explicitly computing x_parallel:
         v = self.v_proj(x)
-        v_hat = v / (torch.norm(v, dim=-1, keepdim=True) + self.eps)
-        x_perp = torch.sum(x * v_hat, dim=-1, keepdim=True) * v_hat
-        x_parallel = x - x_perp
+        v_hat = F.normalize(v, p=2, dim=-1, eps=self.eps)
+        # x_perp = <x, v_hat> v_hat
+        proj = torch.sum(x * v_hat, dim=-1, keepdim=True)
+        x_perp = proj * v_hat
         eta = 1.0 + self.rate_range * torch.tanh(self.refractive_param)
-        return x_parallel + eta * x_perp
+        # Matrix-free rank-one update: T(x) = x + (eta - 1) x_perp
+        return x + (eta - 1.0) * x_perp
 
 
 class ScatteringLayer(nn.Module):
