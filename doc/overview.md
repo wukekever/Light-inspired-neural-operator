@@ -2,8 +2,6 @@
 
 This repository implements a Light-inspired Neural Operator (LiNO) framework for learning solution operators of parametric partial differential equations (PDEs). The codebase is organized as a compact experimental system that prepares PDE datasets, trains neural-operator models, saves reproducible experiment artifacts, and evaluates checkpoints with visual and temporal-error analysis.
 
-This document presents the framework at the system level. It is intended for readers who want to understand repository structure, module interactions, and extension points for adding datasets, models, or experiments. It does not document every function or class.
-
 ## 1. Framework at a Glance
 
 The project is organized as a benchmark-oriented PDE operator-learning pipeline. Raw PDE data enters through the dataset layer, flows through shared preprocessing, is consumed by a LiNO model during training, and is decoded again during evaluation.
@@ -150,33 +148,7 @@ Evaluation is checkpoint-driven. The evaluator loads a checkpoint, rebuilds the 
 
 For time-dependent Navier-Stokes experiments, evaluation performs the same autoregressive rollout used during training. A separate temporal-error evaluator measures how rollout error evolves over time.
 
-## 5. Module Boundaries
-
-The framework separates responsibilities along these boundaries:
-
-| Layer | Owns | Should Avoid |
-| --- | --- | --- |
-| Scripts | Command convenience and path setup | Model or data logic |
-| Entrypoints | Experiment configuration and training loop | Dataset internals |
-| Dataset modules | Loading, preprocessing, normalization | Model architecture |
-| Model modules | Neural-operator architecture | File paths and checkpoints |
-| Evaluation modules | Checkpoint restoration and reporting | Training-time optimization |
-
-These boundaries are not rigid, but they help keep code organized and maintainable.
-
-## 6. Benchmark Roles
-
-The three benchmarks exercise different parts of the framework.
-
-| Benchmark | Role in the Framework | Model Type |
-| --- | --- | --- |
-| Burgers1D | 1D operator learning for a nonlinear PDE | 1D LiNO |
-| Darcy2D | 2D coefficient-to-solution learning | 2D LiNO |
-| Navier-Stokes2D | Autoregressive time-dependent prediction | 2D LiNO with rollout |
-
-Because these benchmarks share the same model backbone and training pattern, they also serve as templates for adding new PDE tasks. Burgers is the simplest 1D case, Darcy is the stationary 2D case, and Navier-Stokes demonstrates time-dependent rollout.
-
-## 7. Data Flow
+## 5. Data Flow
 
 The end-to-end data flow is:
 
@@ -193,7 +165,7 @@ The key design choice is that benchmark-specific loaders handle only dataset det
 
 For stationary problems such as Burgers and Darcy, input-output pairs are constructed directly. For Navier-Stokes, the loader first splits a trajectory into history and future frames, and training performs autoregressive rollout over the future window.
 
-## 8. Experiment Outputs
+## 6. Experiment Outputs
 
 Experiment outputs are stored under `outputs/`. A typical training run saves:
 
@@ -205,32 +177,3 @@ Experiment outputs are stored under `outputs/`. A typical training run saves:
 | `outputs/<experiment_name>/ckpts/best_model.pt` | Best validation checkpoint |
 
 Evaluation may add prediction figures, comparison plots, or temporal-error summaries. These files are generated artifacts rather than source code. The checkpoint and its saved configuration provide the metadata required for later reproduction and analysis.
-
-## 9. Extension Strategy
-
-The framework is designed so that new PDE benchmarks can be added without rewriting the model.
-
-To add a new stationary PDE task:
-
-1. Add a dataset loader that produces input and target tensors.
-2. Reuse shared preprocessing conventions: channel-last layout, coordinate channels, train/validation split, and normalization.
-3. Add a training entrypoint following the existing benchmark pattern.
-4. Choose the 1D or 2D LiNO wrapper based on the spatial domain.
-5. Add optional script wrappers for convenient command-line use.
-6. Extend evaluation only if the new task requires custom visualization.
-
-To add a new time-dependent task, follow the Navier-Stokes pattern: construct history and future windows, train with autoregressive rollout, and evaluate temporal error over the predicted sequence.
-
-Model changes should generally be made in the model layer, not in benchmark entrypoints. Benchmark scripts should configure model width, depth, scattering type, and input/output channels, while architectural changes remain in the shared model implementation.
-
-## 10. Design Principles
-
-The codebase follows several practical design principles:
-
-- **Benchmark-specific code stays at the edges.** Dataset details and defaults live in benchmark entrypoints, while the model remains shared.
-- **Preprocessing is centralized.** Normalization, coordinate channels, resizing, and splitting are implemented through shared utilities.
-- **Model components are modular.** Reflection, refraction, scattering, lifting, projection, and block composition are separate concepts.
-- **Experiments are reproducible.** Configurations, normalizers, checkpoints, and logs are saved together.
-- **Evaluation is checkpoint-based.** A checkpoint contains enough metadata to rebuild the model and decode predictions.
-
-Overall, the repository is a compact PDE-operator learning framework: datasets define the physical problem, training entrypoints define the experiment, the LiNO model provides the shared neural-operator backbone, and evaluation scripts turn checkpoints into interpretable outputs.

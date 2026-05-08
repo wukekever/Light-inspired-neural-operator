@@ -99,10 +99,10 @@ tree
 │   ├── transparent-pku-logo.png
 │   └── transparent-ustc-logo.png
 ├── doc
-│   └── main.tex
+│   ├── main.tex
+│   └── overview.md
 ├── LICENSE
 ├── make_title.py
-├── outputs
 ├── pyproject.toml
 ├── README.md
 ├── requirements.txt
