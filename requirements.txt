@@ -17,3 +17,6 @@ termcolor>=2.3.0
 
 # Image processing (used in make_title.py)
 Pillow>=9.5.0
+
+# Optional helper for Google Drive dataset downloads
+gdown>=5.1.0

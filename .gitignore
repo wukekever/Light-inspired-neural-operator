@@ -1,5 +1,6 @@
 # data 
 *.mat
+*.npy
 
 # Training outputs
 outputs/

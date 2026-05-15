@@ -61,15 +61,18 @@ pip install -r requirements.txt
   - matplotlib >= 3.7.0 (for evaluation plots)
   - termcolor >= 2.3.0 (for colored logging)
   - Pillow >= 9.5.0 (for `make_title.py`)
+  - gdown >= 5.1.0
 
 </details>
 
 
 ## 🔗 Datasets
-We provide datasets for Burgers equation, Darcy flow, and Navier-Stokes equation used in the paper. Data generation details are available in the paper.
+We provide datasets for Burgers equation, Darcy flow, Navier-Stokes equation, and the Geo-FNO NACA airfoil Euler benchmark. Data generation details are available in the paper.
 
-**Download datasets:**
-- [PDE datasets](https://drive.google.com/drive/folders/1UnbQh2WWc6knEHbLn-ZaXrKUZhp7pjt-?usp=sharing)
+**datasets:**
+- [Burgers/Darcy/Navier-Stokes datasets](https://drive.google.com/drive/folders/1UnbQh2WWc6knEHbLn-ZaXrKUZhp7pjt-?usp=sharing)
+
+- [Airfoil datasets](https://drive.google.com/drive/folders/1JUkPbx0-lgjFHPURH_kp1uqjfRn3aw9-?usp=sharing)
 
 Alternatively, use the provided shell script in the Light-inspired-neural-operator repository to download the datasets directly:
 ```bash
@@ -85,6 +88,7 @@ Examples:
 - `burgers_data_R10.mat`: Shape [1000, 8192] — 1000 samples on a 1D grid of 8192 points
 - `Darcy2D_piececonst_r241_N1024_smooth1.mat`: Shape [1024, 241, 241] — 1024 samples on a 2D grid of 241×241
 - `ns_V1e-3_N5000_T50.mat`: Shape [5000, 64, 64, 50] — 5000 samples on a 2D grid of 64×64 with 50 time steps
+- `NACA_Cylinder_X/Y/Q.npy`: Geo-FNO NACA airfoil benchmark. Inputs are physical mesh coordinates `(x,y)` on a structured C/O mesh; optional computational coordinates `(xi,eta)` are appended; target channel `Q[:, 4]` is used as the Mach-number field by default.
 
 
 ## 📁 Project Architecture
@@ -107,18 +111,23 @@ tree
 ├── README.md
 ├── requirements.txt
 ├── scripts
+│   ├── download_airfoil2d.sh
 │   ├── download_burgers1d.sh
 │   ├── download_darcy2d.sh
 │   ├── download_navierstokes2d.sh
+│   ├── run_eval_airfoil2d.sh
+│   ├── run_eval_airfoil2d_metrics.sh
 │   ├── run_eval_burgers1d.sh
 │   ├── run_eval_darcy2d.sh
 │   ├── run_eval_navierstokes2d.sh
 │   ├── run_eval_temporal_error_navierstokes2d.sh
+│   ├── run_train_airfoil2d.sh
 │   ├── run_train_burgers1d.sh
 │   ├── run_train_darcy2d.sh
 │   └── run_train_navierstokes2d.sh
 └── src
     ├── datasets
+    │   ├── airfoil2d.py
     │   ├── Burgers1D
     │   │   └── burgers_data_R10.mat
     │   ├── burgers1d.py
@@ -134,10 +143,12 @@ tree
     │   │   └── ns_V1e-3_N5000_T50.mat
     │   └── navierstokes2d.py
     ├── eval.py
+    ├── eval_airfoil2d_metrics.py
     ├── eval_temporal_error.py
     ├── logger.py
     ├── modules
     │   └── model.py
+    ├── run_airfoil2d.py
     ├── run_burgers1d.py
     ├── run_darcy2d.py
     ├── run_navierstokes2d.py
@@ -152,6 +163,18 @@ bash ./scripts/run_train_darcy2d.sh
 # Evaluate on Darcy2D Problem after training (Replace the **checkpoint path** in the script!)
 bash ./scripts/run_eval_darcy2d.sh
 ```
+
+### Airfoil2D / NACA Euler benchmark
+
+The added Airfoil2D pipeline follows the Geo-FNO benchmark formulation:
+
+```text
+input  : [x, y, xi, eta] on the structured airfoil C/O mesh
+target : scalar Mach-number field, default Q[:, 4]
+split  : first 1000 samples for training and next 200 for validation/testing
+```
+
+`x,y` encode the physical body-fitted airfoil mesh, while `xi,eta` encode the canonical computational lattice used by the LiNO scattering layers. To disable computational coordinates and use only physical mesh coordinates, pass `--no-coord` to `src/run_airfoil2d.py`.
 
 ## 📌 Citation
 

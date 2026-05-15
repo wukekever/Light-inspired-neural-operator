@@ -12,6 +12,7 @@ from datasets import (
     OperatorDataset,
     build_burgers1d_splits,
     build_darcy2d_splits,
+    build_airfoil2d_splits,
     build_navierstokes2d_splits,
 )
 from modules.model import LightNeuralOperator
@@ -57,6 +58,74 @@ def beautify_image_axis(ax):
         spine.set_linewidth(0.8)
     ax.set_xticks([])
     ax.set_yticks([])
+
+
+AIRFOIL_XLIM = (-0.5, 1.5)
+AIRFOIL_YLIM = (-0.6, 0.6)
+
+
+def plot_airfoil_geometry_panel(ax, mesh_x, mesh_y):
+    """Plot the input airfoil curvilinear mesh as the geometry panel.
+
+    The first two input channels of Airfoil2D are the physical coordinates
+    ``(x, y)`` on a structured C-grid/O-mesh.  This panel visualizes those
+    coordinates directly, so the user can inspect the geometry used as input
+    by LiNO.
+    """
+    if hasattr(mesh_x, "detach"):
+        mesh_x = mesh_x.detach().cpu().numpy()
+    if hasattr(mesh_y, "detach"):
+        mesh_y = mesh_y.detach().cpu().numpy()
+
+    nx, ny = mesh_x.shape
+    stride_i = max(1, nx // 45)
+    stride_j = max(1, ny // 24)
+
+    # Draw representative logical grid lines to show the body-fitted mesh.
+    for i in range(0, nx, stride_i):
+        ax.plot(mesh_x[i, :], mesh_y[i, :], linewidth=0.35, alpha=0.45, color="0.45")
+    for j in range(0, ny, stride_j):
+        ax.plot(mesh_x[:, j], mesh_y[:, j], linewidth=0.35, alpha=0.45, color="0.45")
+
+    # Emphasize all four logical boundaries.  Depending on the storage convention,
+    # one of these curves is the airfoil surface and another is the far field.
+    # Highlighting all four is robust across C-grid/O-mesh indexing conventions.
+    ax.plot(mesh_x[:, 0], mesh_y[:, 0], linewidth=1.8, color="black")
+    ax.plot(mesh_x[:, -1], mesh_y[:, -1], linewidth=1.8, color="black")
+    ax.plot(mesh_x[0, :], mesh_y[0, :], linewidth=1.2, color="0.15", linestyle="--")
+    ax.plot(mesh_x[-1, :], mesh_y[-1, :], linewidth=1.2, color="0.15", linestyle="--")
+
+    ax.set_title("Input Geometry / Mesh", pad=6)
+    ax.set_aspect("equal", adjustable="box")
+    ax.set_xlim(*AIRFOIL_XLIM)
+    ax.set_ylim(*AIRFOIL_YLIM)
+    ax.set_xlabel(r"$x$")
+    ax.set_ylabel(r"$y$")
+    ax.tick_params(labelsize=8, width=0.6, length=2)
+    for spine in ax.spines.values():
+        spine.set_linewidth(0.8)
+
+
+def resolve_runtime_path(path_value: str | None) -> str | None:
+    """Resolve a checkpoint-stored relative path robustly for direct script calls.
+
+    Some checkpoints store paths relative to ``src`` because the training shell
+    scripts execute ``cd src`` first.  This resolver checks the current working
+    directory, the ``src`` directory, and the repository root.
+    """
+    if path_value is None:
+        return None
+    p = Path(path_value).expanduser()
+    if p.is_absolute():
+        return str(p)
+    src_dir = Path(__file__).resolve().parent
+    repo_root = src_dir.parent
+    for candidate in (Path.cwd() / p, src_dir / p, repo_root / p):
+        if candidate.exists():
+            return str(candidate.resolve())
+    # Fall back to the src-relative interpretation, which is how the provided
+    # training scripts store Airfoil2D paths in checkpoints.
+    return str((src_dir / p).resolve())
 
 
 def get_timestamp():
@@ -144,6 +213,21 @@ def main(args) -> None:
             normalize_x=cfg.get("normalize_x", True),
             normalize_y=cfg.get("normalize_y", True),
             seed=cfg["seed"],
+        )
+    elif dataset_name == "airfoil2d":
+        split = build_airfoil2d_splits(
+            data_path=resolve_runtime_path(args.data_path or cfg["data_path"]),
+            target_size=tuple(cfg.get("target_size"))
+            if cfg.get("target_size") is not None
+            else None,
+            n_train=cfg["n_train"],
+            n_val=cfg["n_val"],
+            use_coord=use_coord,
+            normalize_x=not cfg.get("no_normalize_x", False),
+            normalize_y=not cfg.get("no_normalize_y", False),
+            seed=cfg["seed"],
+            target_channel=cfg.get("target_channel", 4),
+            shuffle=cfg.get("shuffle_split", False),
         )
     elif dataset_name == "navierstokes2d":
         split = build_navierstokes2d_splits(
@@ -349,6 +433,106 @@ def main(args) -> None:
                 cbar.formatter = formatter
                 cbar.update_ticks()
 
+    elif dataset_name == "airfoil2d":
+        # Decode the physical mesh coordinates from the first two channels.
+        mesh_norm = x[0, ..., :2].detach().cpu()
+        mesh_phys = split.x_normalizer.decode(mesh_norm)
+        mesh_x = mesh_phys[..., 0]
+        mesh_y = mesh_phys[..., 1]
+
+        target_field = y_phys[0, ..., 0]
+        pred_field = pred_phys[0, ..., 0]
+        err_field = pred_field - target_field
+
+        sol_min = min(target_field.min().item(), pred_field.min().item())
+        sol_max = max(target_field.max().item(), pred_field.max().item())
+        err_abs = torch.abs(err_field).max().item()
+
+        fig, axes = plt.subplots(1, 4, figsize=(18.0, 4.0), constrained_layout=True)
+
+        # (a) Input geometry / mesh.
+        plot_airfoil_geometry_panel(axes[0], mesh_x, mesh_y)
+        axes[0].text(
+            -0.12,
+            1.08,
+            "(a)",
+            transform=axes[0].transAxes,
+            fontsize=11,
+            fontweight="bold",
+        )
+
+        panels = [
+            (target_field, "Ground Truth", sol_min, sol_max),
+            (pred_field, "Prediction", sol_min, sol_max),
+            (err_field, "Error", -err_abs, err_abs),
+        ]
+        panel_labels = ["(b)", "(c)", "(d)"]
+
+        for ax, (field, title, vmin, vmax), panel_label in zip(
+            axes[1:], panels, panel_labels
+        ):
+            # pcolormesh respects the curvilinear airfoil mesh; fall back to imshow if needed.
+            try:
+                im = ax.pcolormesh(
+                    mesh_x.numpy(),
+                    mesh_y.numpy(),
+                    field.numpy(),
+                    shading="auto",
+                    cmap="viridis",
+                    vmin=vmin,
+                    vmax=vmax,
+                )
+                ax.set_aspect("equal", adjustable="box")
+            except Exception:
+                im = ax.imshow(
+                    field.numpy(),
+                    origin="lower",
+                    cmap="viridis",
+                    vmin=vmin,
+                    vmax=vmax,
+                    aspect="auto",
+                )
+            # Zoom into the airfoil neighborhood so the body and shocks are visible.
+            try:
+                ax.plot(
+                    mesh_x[:, 0].numpy(),
+                    mesh_y[:, 0].numpy(),
+                    linewidth=1.0,
+                    color="black",
+                )
+            except Exception:
+                pass
+            ax.set_title(title, pad=6)
+            ax.set_xlim(*AIRFOIL_XLIM)
+            ax.set_ylim(*AIRFOIL_YLIM)
+            ax.set_aspect("equal", adjustable="box")
+            ax.tick_params(labelsize=8, width=0.6, length=2)
+            for spine in ax.spines.values():
+                spine.set_linewidth(0.8)
+            ax.text(
+                -0.12,
+                1.08,
+                panel_label,
+                transform=ax.transAxes,
+                fontsize=11,
+                fontweight="bold",
+            )
+            # cbar = fig.colorbar(im, ax=ax, fraction=0.046, pad=0.03)
+            cbar = fig.colorbar(im, ax=ax, fraction=0.046, pad=0.03, shrink=0.5)
+            cbar.ax.tick_params(labelsize=8, width=0.6, length=2)
+            if title == "Error":
+                formatter = ticker.ScalarFormatter(useMathText=True)
+                formatter.set_scientific(True)
+                formatter.set_powerlimits((0, 0))
+                cbar.formatter = formatter
+                cbar.update_ticks()
+
+        # fig.suptitle(
+        #     rf"Airfoil Mach field, relative $L^2$ error = {rel_err:.3e}",
+        #     y=1.03,
+        #     fontsize=12,
+        # )
+
     else:  # NavierStokes2D
         t_in = int(cfg["t_in"])
         t_out = int(y_phys.shape[-1])
@@ -474,4 +658,10 @@ if __name__ == "__main__":
     parser.add_argument("--index", type=int, default=0)
     parser.add_argument("--output-path", type=str, default="evaluation_results.png")
     parser.add_argument("--device", type=str, default=None)
+    parser.add_argument(
+        "--data-path",
+        type=str,
+        default=None,
+        help="Optional dataset path override, e.g. src/datasets/NACA. Useful when a checkpoint stores a src-relative path.",
+    )
     main(parser.parse_args())

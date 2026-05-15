@@ -1,4 +1,4 @@
-# Dataset Specifications
+*# Dataset Specifications
 
 ## 1. Burgers1D — `Burgers1D/burgers_data_R10.mat`
 
@@ -83,3 +83,4 @@
 - `u[i]` has shape `(64, 64, 50)`: extract frame k as `u[i, :, :, k]`.
 - Use `a` (or `u[..., 0]`) as input; predict `u[..., 1:]` or specific frames.
 
+*
