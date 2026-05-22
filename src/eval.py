@@ -95,7 +95,7 @@ def plot_airfoil_geometry_panel(ax, mesh_x, mesh_y):
     ax.plot(mesh_x[0, :], mesh_y[0, :], linewidth=1.2, color="0.15", linestyle="--")
     ax.plot(mesh_x[-1, :], mesh_y[-1, :], linewidth=1.2, color="0.15", linestyle="--")
 
-    ax.set_title("Input Geometry / Mesh", pad=6)
+    ax.set_title("Input geometry / mesh", pad=6)
     ax.set_aspect("equal", adjustable="box")
     ax.set_xlim(*AIRFOIL_XLIM)
     ax.set_ylim(*AIRFOIL_YLIM)
@@ -395,7 +395,7 @@ def main(args) -> None:
             (coeff_phys, "Coefficient", "viridis", None, None),
             (target_field, "Ground truth", "viridis", sol_min, sol_max),
             (pred_field, "Prediction", "viridis", sol_min, sol_max),
-            (err_field, "Error", "viridis", -err_abs, err_abs),
+            (err_field, "Pointwise error", "viridis", -err_abs, err_abs),
         ]
         panel_labels = ["(a)", "(b)", "(c)", "(d)"]
 
@@ -426,7 +426,7 @@ def main(args) -> None:
             cbar = fig.colorbar(im, ax=ax, fraction=0.046, pad=0.03)
             cbar.ax.tick_params(labelsize=8, width=0.6, length=2)
 
-            if title == "Error":
+            if title == "Pointwise Error":
                 formatter = ticker.ScalarFormatter(useMathText=True)
                 formatter.set_scientific(True)
                 formatter.set_powerlimits((0, 0))
@@ -462,9 +462,9 @@ def main(args) -> None:
         )
 
         panels = [
-            (target_field, "Ground Truth", sol_min, sol_max),
+            (target_field, "Ground truth", sol_min, sol_max),
             (pred_field, "Prediction", sol_min, sol_max),
-            (err_field, "Error", -err_abs, err_abs),
+            (err_field, "Pointwise error", -err_abs, err_abs),
         ]
         panel_labels = ["(b)", "(c)", "(d)"]
 
@@ -520,7 +520,7 @@ def main(args) -> None:
             # cbar = fig.colorbar(im, ax=ax, fraction=0.046, pad=0.03)
             cbar = fig.colorbar(im, ax=ax, fraction=0.046, pad=0.03, shrink=0.5)
             cbar.ax.tick_params(labelsize=8, width=0.6, length=2)
-            if title == "Error":
+            if title == "Pointwise error":
                 formatter = ticker.ScalarFormatter(useMathText=True)
                 formatter.set_scientific(True)
                 formatter.set_powerlimits((0, 0))
@@ -597,7 +597,7 @@ def main(args) -> None:
             vmax=vmax,
             aspect="equal",
         )
-        ax_init.set_title("Initial Vorticity", fontsize=18, pad=14)
+        ax_init.set_title("Initial vorticity", fontsize=18, pad=14)
         _format_snapshot_axis(ax_init)
 
         ax_label = fig.add_subplot(gs[1, 0])

@@ -116,7 +116,6 @@ tree
 │   ├── download_darcy2d.sh
 │   ├── download_navierstokes2d.sh
 │   ├── run_eval_airfoil2d.sh
-│   ├── run_eval_airfoil2d_metrics.sh
 │   ├── run_eval_burgers1d.sh
 │   ├── run_eval_darcy2d.sh
 │   ├── run_eval_navierstokes2d.sh
@@ -163,18 +162,6 @@ bash ./scripts/run_train_darcy2d.sh
 # Evaluate on Darcy2D Problem after training (Replace the **checkpoint path** in the script!)
 bash ./scripts/run_eval_darcy2d.sh
 ```
-
-### Airfoil2D / NACA Euler benchmark
-
-The added Airfoil2D pipeline follows the Geo-FNO benchmark formulation:
-
-```text
-input  : [x, y, xi, eta] on the structured airfoil C/O mesh
-target : scalar Mach-number field, default Q[:, 4]
-split  : first 1000 samples for training and next 200 for validation/testing
-```
-
-`x,y` encode the physical body-fitted airfoil mesh, while `xi,eta` encode the canonical computational lattice used by the LiNO scattering layers. To disable computational coordinates and use only physical mesh coordinates, pass `--no-coord` to `src/run_airfoil2d.py`.
 
 ## 📌 Citation
 

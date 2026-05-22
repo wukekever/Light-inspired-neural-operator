@@ -405,29 +405,74 @@ class LightEvolutionBlock(nn.Module):
     """
 
     def __init__(
-        self, num_features: int, spatial_dims: int, scattering_type: str = "efficient"
+        self,
+        num_features: int,
+        spatial_dims: int,
+        scattering_type: str = "efficient",
+        light_components: Sequence[str] | None = None,
     ):
         super().__init__()
         self.spatial_dims = spatial_dims
         self.norm1 = nn.LayerNorm(num_features)
         self.norm2 = nn.LayerNorm(num_features)
-        self.reflection = ReflectionLayer(num_features)
-        self.refraction = RefractionLayer(num_features)
-        st = scattering_type.lower()
-        if st == "standard":
-            self.scattering = ScatteringLayer(num_features, spatial_dims=spatial_dims)
-        elif st == "efficient":
-            self.scattering = EfficientScatteringLayer(
-                num_features, spatial_dims=spatial_dims
-            )
-        else:
+
+        if light_components is None:
+            light_components = ("reflection", "refraction", "scattering")
+        component_alias = {
+            "r": "reflection",
+            "reflection": "reflection",
+            "t": "refraction",
+            "refraction": "refraction",
+            "s": "scattering",
+            "scattering": "scattering",
+        }
+        self.light_components = tuple(
+            component_alias[c.lower()] for c in light_components
+        )
+        valid_components = {"reflection", "refraction", "scattering"}
+        if len(self.light_components) == 0:
+            raise ValueError("At least one light component must be enabled.")
+        if set(self.light_components) - valid_components:
             raise ValueError(
-                f"scattering_type must be 'standard' or 'efficient', got {scattering_type!r}"
+                f"Unknown light components: {self.light_components}. "
+                f"Valid components are {sorted(valid_components)}."
             )
+        if len(set(self.light_components)) != len(self.light_components):
+            raise ValueError(
+                f"Duplicated light components are not allowed: {self.light_components}"
+            )
+
+        self.reflection = (
+            ReflectionLayer(num_features)
+            if "reflection" in self.light_components
+            else None
+        )
+        self.refraction = (
+            RefractionLayer(num_features)
+            if "refraction" in self.light_components
+            else None
+        )
+        if "scattering" in self.light_components:
+            st = scattering_type.lower()
+            if st == "standard":
+                self.scattering = ScatteringLayer(
+                    num_features, spatial_dims=spatial_dims
+                )
+            elif st == "efficient":
+                self.scattering = EfficientScatteringLayer(
+                    num_features, spatial_dims=spatial_dims
+                )
+            else:
+                raise ValueError(
+                    f"scattering_type must be 'standard' or 'efficient', got {scattering_type!r}"
+                )
+        else:
+            self.scattering = None
+
         self.gate = nn.Sequential(
             nn.Linear(num_features, 2 * num_features),
             nn.GELU(),
-            nn.Linear(2 * num_features, 3),
+            nn.Linear(2 * num_features, len(self.light_components)),
         )
         self.out_proj = nn.Linear(num_features, num_features)
         self.ffn = FeatureMLP(num_features)
@@ -435,20 +480,27 @@ class LightEvolutionBlock(nn.Module):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Residual update; output shape matches ``x``."""
         h = self.norm1(x)
-        xr = self.reflection(h)
-        xt = self.refraction(h)
-        xs = self.scattering(h)
+
+        branch_outputs = []
+        for name in self.light_components:
+            if name == "reflection":
+                branch_outputs.append(self.reflection(h))
+            elif name == "refraction":
+                branch_outputs.append(self.refraction(h))
+            elif name == "scattering":
+                branch_outputs.append(self.scattering(h))
+            else:
+                raise RuntimeError(f"Unexpected light component: {name}")
 
         reduce_dims = tuple(range(1, h.ndim - 1))
         pooled = h.mean(dim=reduce_dims)
         alpha = F.softmax(self.gate(pooled), dim=-1)
 
         shape = [x.shape[0]] + [1] * (x.ndim - 2) + [1]
-        a_r = alpha[:, 0].view(*shape)
-        a_t = alpha[:, 1].view(*shape)
-        a_s = alpha[:, 2].view(*shape)
+        mix = 0.0
+        for i, branch in enumerate(branch_outputs):
+            mix = mix + alpha[:, i].view(*shape) * branch
 
-        mix = a_r * xr + a_t * xt + a_s * xs
         x = x + self.out_proj(mix)
         x = x + self.ffn(self.norm2(x))
         return x
@@ -524,6 +576,7 @@ class LightNeuralOperator(nn.Module):
         num_features: int = 16,
         depth: int = 4,
         scattering_type: str = "efficient",
+        light_components: Sequence[str] | None = None,
     ):
         super().__init__()
         if spatial_dims not in (1, 2):
@@ -532,6 +585,11 @@ class LightNeuralOperator(nn.Module):
         self.num_features = num_features
         self.depth = depth
         self.scattering_type = scattering_type
+        self.light_components = (
+            tuple(light_components)
+            if light_components is not None
+            else ("reflection", "refraction", "scattering")
+        )
 
         self.lifting = LiftingLayer(in_channels, num_features)
         self.blocks = nn.ModuleList(
@@ -540,6 +598,7 @@ class LightNeuralOperator(nn.Module):
                     num_features,
                     spatial_dims=spatial_dims,
                     scattering_type=scattering_type,
+                    light_components=self.light_components,
                 )
                 for _ in range(depth)
             ]
@@ -575,6 +634,7 @@ class LightNeuralOperator1D(LightNeuralOperator):
         num_features: int = 16,
         depth: int = 4,
         scattering_type: str = "efficient",
+        light_components: Sequence[str] | None = None,
     ):
         super().__init__(
             in_channels,
@@ -583,6 +643,7 @@ class LightNeuralOperator1D(LightNeuralOperator):
             num_features=num_features,
             depth=depth,
             scattering_type=scattering_type,
+            light_components=light_components,
         )
 
 
@@ -596,6 +657,7 @@ class LightNeuralOperator2D(LightNeuralOperator):
         num_features: int = 16,
         depth: int = 4,
         scattering_type: str = "efficient",
+        light_components: Sequence[str] | None = None,
     ):
         super().__init__(
             in_channels,
@@ -604,4 +666,5 @@ class LightNeuralOperator2D(LightNeuralOperator):
             num_features=num_features,
             depth=depth,
             scattering_type=scattering_type,
+            light_components=light_components,
         )

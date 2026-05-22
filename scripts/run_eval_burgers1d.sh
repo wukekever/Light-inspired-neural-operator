@@ -1,6 +1,6 @@
 #!/bin/bash
 ## Working directory: Light-inspired-neural-operator
-## Usage: bash ./scripts/run_eval.sh
+## Usage: bash ./scripts/run_eval_burgers1d.sh
 
 # LNO_PATH="burgers1d_256_standard" # standard mode: O(N^2) scattering
 LNO_PATH="burgers1d_256_efficient" # efficient mode: O(NdM) scattering

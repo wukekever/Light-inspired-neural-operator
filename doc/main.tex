@@ -6,6 +6,7 @@
 \graphicspath{{./figures/}}
 \usepackage{xcolor}
 \usepackage{booktabs}
+\usepackage[table]{xcolor}
 \usepackage{multirow}
 \usepackage{caption}
 \usepackage{subcaption}
@@ -54,23 +55,23 @@
 \newcommand{\ELU}{\operatorname{ELU}}
 \newcommand{\GELU}{\operatorname{GELU}}
 \newcommand{\diag}{\operatorname{diag}}
-
 \newcommand{\KW}[1]{\textcolor{purple}{{KW: #1}}}
 
 \begin{document}
-\title{Let There Be Light: Reflection, Refraction, and Scattering for Neural Operators of Parametric PDEs}
+\title{Let There Be Light: Reflection, Refraction and Scattering for PDE Neural Operators}
+
 \author[]{}
 
 % \author[1,2,4]{Keke Wu}
-% \author[X]{Yixuan Zhang}
-% \author[X]{XXX}
+% \author[5]{Yixuan Zhang}
+% % \author[X]{XXX}
 % \author[1,3,4 \thanks{Corresponding author:jingrunchen@ustc.edu.cn}]{Jingrun Chen}
 % \affil[1]{\small Suzhou Institute for Advanced Research, University of Science and Technology of China, Suzhou 215123, China}
 % \affil[2]{\small School of Artificial Intelligence and Data Science, University of Science and Technology of China, Hefei 230026, China }
 % \affil[3]{\small School of Mathematical Sciences, University of Science and Technology of China, Hefei 230026, China}
 % \affil[4]{\small Suzhou Big Data \& AI Research and Engineering Center, Suzhou 215123, China}
-% \affil[5]{}
-% \affil[6]{}
+% \affil[5]{\small School of Mathematical Science, Peking University, Beijing, 100871, China}
+% % \affil[6]{}
 
 
 \date{\today}
@@ -78,8 +79,18 @@
 \maketitle
 
 \begin{abstract}
-Neural operators learn mappings between infinite-dimensional function spaces and provide a data-driven surrogate modeling paradigm for parametric partial differential equations (PDEs). Existing architectures often obtain expressivity by either parameterizing an integral kernel in a prescribed transform domain or by applying attention directly over discretized mesh points. These designs have led to substantial progress, but they also expose a persistent tension between physical interpretability, spatial nonlocality, mesh scalability, and computational complexity. We propose a \emph{Light-inspired neural operator} (LiNO), an operator-learning architecture whose latent evolution is decomposed into three mechanisms motivated by elementary light transport: reflection, refraction, and scattering. Reflection and refraction act as adaptive feature-space transformations at each spatial location, while scattering acts as an input-dependent nonlocal spatial propagation operator. The original scattering layer is formulated as a normalized kernel map with relative positional bias, and an efficient variant replaces the quadratic pairwise kernel by a linearized global kernel plus a local diffusion branch. This yields a structured neural operator that separates local constitutive modulation from nonlocal spatial communication while remaining compatible with PDE benchmarks such as Burgers' equation, Darcy flow, and time-dependent Navier--Stokes flows. Our code is publicly available at: \url{https://github.com/wukekever/Light-inspired-neural-operator}.
+Neural operators learn mappings between infinite-dimensional function spaces and provide a data-driven surrogate modeling paradigm for parametric partial differential equations (PDEs). 
+Existing architectures typically obtain expressivity by parameterizing integral kernels in prescribed transform domains or by applying attention-like interactions over discretized spatial points. 
+While these approaches have achieved substantial progress, they often face a persistent trade-off among physical interpretability, nonlocal spatial communication, mesh scalability, and computational cost. 
+We propose a \emph{Light-inspired neural operator} (LiNO), an operator-learning architecture whose latent evolution is decomposed into three mechanisms motivated by elementary light transport: reflection, refraction, and scattering. 
+Reflection and refraction act as adaptive pointwise transformations in latent feature space, enabling local feature reorientation and anisotropic modulation, whereas scattering performs input-dependent nonlocal propagation over the physical domain. 
+We first formulate scattering as a normalized pairwise kernel with relative positional bias, and then develop an efficient scattering variant that replaces explicit pairwise interactions with positive-feature global propagation and a local diffusion branch, reducing the dominant spatial complexity from quadratic to linear.
+This yields a structured neural operator that separates local feature modulation from global spatial communication while retaining a modular and interpretable latent evolution. 
+Experiments on Burgers' equation, Darcy flow, transonic airfoil flow, and Navier--Stokes dynamics show that LiNO achieves competitive accuracy across representative benchmarks, improves over reported values on several settings, scales effectively to high-resolution grids, captures geometry-dependent flow fields, and maintains stable autoregressive rollouts for dynamic problems.
+These results suggest that light-inspired latent transport provides a flexible design principle for building interpretable and scalable neural operators for PDE surrogate modeling. 
+Our code is publicly available at: \url{https://github.com/wukekever/Light-inspired-neural-operator}.
 \end{abstract}
+
 
 \section{Introduction}
 
@@ -103,35 +114,47 @@ Despite this progress, there remains a need for neural-operator architectures th
 
 The proposed light-inspired formulation is designed to bridge physical interpretability and computational efficiency. Reflection and refraction act pointwise on the latent channel dimension and therefore introduce nonlinear local feature evolution at negligible spatial cost. Scattering acts over the physical domain and supplies the nonlocal communication required by elliptic, parabolic, and fluid-type PDE solution operators. We first formulate a full scattering layer as a relative-position-biased attention kernel over spatial nodes, which provides a direct and expressive discretization of nonlocal light scattering. To reduce the quadratic cost of this formulation, we further develop an efficient scattering layer based on linearized attention together with a local depthwise convolutional branch, preserving global information exchange while lowering the dominant complexity from quadratic to linear in the number of spatial nodes. The resulting architecture retains the operator-learning perspective of existing neural operators while introducing a modular optical inductive bias that separates local feature redirection, anisotropic transmission, and nonlocal spatial mixing.
 
-The main contributions of this work are summarized as follows. First, we introduce a light-inspired operator-learning architecture for parametric PDEs, in which the latent evolution is explicitly decomposed into reflection, refraction, and scattering mechanisms. Second, we formulate the reflection and refraction layers as adaptive feature-space transformations motivated by geometric optics, while the scattering layer is derived as a spatial nonlocal kernel with relative positional bias. Third, we propose an efficient scattering variant that combines linear attention with local convolution, substantially reducing the computational burden of full spatial attention. Finally, we demonstrate through canonical operator-learning benchmarks, including one-dimensional Burgers' equation, two-dimensional Darcy flow, and time-dependent Navier--Stokes dynamics, that the proposed model provides a flexible and interpretable alternative to purely Fourier-, graph-, or transformer-based neural operators. A schematic of the proposed Light-inspired neural operator (LiNO) is presented in Fig~\ref{fig:lino}.
+The main contributions of this work are summarized as follows. First, we introduce a light-inspired operator-learning architecture for parametric PDEs, in which the latent evolution is explicitly decomposed into reflection, refraction, and scattering mechanisms. Second, we formulate the reflection and refraction layers as adaptive feature-space transformations motivated by geometric optics, while the scattering layer is derived as a spatial nonlocal kernel with relative positional bias. Third, we propose an efficient scattering variant that combines linear attention with local convolution, substantially reducing the computational burden of full spatial attention. Finally, we demonstrate through canonical operator-learning benchmarks, including one-dimensional Burgers' equation, two-dimensional Darcy flow, and time-dependent Navier--Stokes dynamics, that the proposed model provides a flexible and interpretable alternative to purely Fourier-, graph-, or transformer-based neural operators. A schematic of the proposed Light-inspired neural operator (LiNO) is presented in Fig.~\ref{fig:lino}.
 \begin{figure}
     \centering
-    \includegraphics[width=0.95\linewidth]{./framework.pdf}
-    \caption{Schematic diagram of the full architecture of Light-inspired neural operator (LiNO).}
+    \includegraphics[width=0.9\linewidth]{./framework.png}
+    \caption{
+    \textbf{Architecture of the Light-inspired neural operator.}
+    \textbf{Top:} LiNO learns the parametric PDE solution operator 
+    $\mathcal{G}:a\mapsto u$ by lifting the input field to a latent feature space, 
+    evolving it through stacked light-evolution blocks, and projecting the final latent 
+    representation to the output field. 
+    \textbf{Middle:} Each light-evolution block updates the latent state through three 
+    parallel branches. 
+    Reflection and refraction are pointwise feature-space transformations, while scattering 
+    performs spatial kernel propagation. 
+    Their outputs are combined by an input-dependent adaptive mixture and inserted into a 
+    residual block with linear projection and pointwise MLP correction. 
+    \textbf{Bottom:} The elementary operations underlying the block. 
+    Reflection acts as an adaptive Householder mirror in feature space; refraction rescales 
+    the component along a learned normal direction while preserving the tangential component; 
+    scattering realizes nonlocal propagation by a learned spatial kernel; and adaptive 
+    mixture weights determine the relative contribution of the three light-inspired 
+    mechanisms. 
+    }
     \label{fig:lino}
 \end{figure}
 
 The remainder of this paper is organized as follows. 
 Section~\ref{sec:method} presents the proposed Light-inspired Neural Operator. 
-After formulating the operator-learning problem, we introduce the light-evolution block and its three components: reflection, refraction, and scattering. 
-Reflection and refraction are developed as adaptive feature-space transformations, whereas scattering is formulated as a nonlinear spatial propagation operator. 
-We also introduce an efficient scattering variant based on positive-feature global propagation and local diffusion, which reduces the quadratic complexity of the full pairwise scattering layer. 
-Section~\ref{sec:experiments} reports numerical experiments on Burgers' equation, Darcy flow, and two-dimensional Navier--Stokes dynamics, with comparisons between the standard and efficient scattering variants in terms of accuracy, memory usage, and computational cost. 
-Section~\ref{sec:conclusion} concludes the paper and discusses future extensions to irregular geometries, multiscale discretizations, and structure-preserving neural operators. 
-Appendices~\ref{app:benchmark-pdes} and~\ref{app:exp-kernel-feature} provide additional details on the benchmark PDEs and the exponential-kernel feature representation, respectively.
+We first formulate the operator-learning problem and then introduce the light-evolution block, whose latent update is decomposed into reflection, refraction, and scattering. 
+Reflection and refraction are developed as adaptive feature-space transformations, while scattering is formulated as a nonlinear spatial propagation operator. 
+We further develop a scalable scattering implementation that replaces explicit pairwise interactions with positive-feature global propagation and a local diffusion branch, reducing the dominant spatial complexity from quadratic to linear.
+Section~\ref{sec:experiments} reports numerical experiments on Burgers' equation, Darcy flow, transonic airfoil flow, and two-dimensional Navier--Stokes dynamics, covering accuracy, computational efficiency, component ablations, geometry-dependent prediction, and autoregressive stability. 
+Section~\ref{sec:conclusion} summarizes the main findings and outlines future directions. 
+Appendix~\ref{app:benchmark-pdes} provides the benchmark PDE and dataset details, while Appendix~\ref{app:exp-kernel-feature} discusses the exponential-kernel feature representation used to motivate efficient scattering.
 
 \section{Method}
 \label{sec:method}
 \subsection{Problem setting and neural-operator formulation}
 
-Let $\{x_i\}_{i=1}^{N}\subset\Omega$ be a discretization of the domain. In one dimension, $N=L$; in two dimensions, $N=HW$ for a grid of size $H\times W$. The discrete input is represented in channels-last format,
-\begin{equation}
-    a_N = \{a(x_i)\}_{i=1}^{N} \in \R^{N\times d_{\mathrm{in}}},
-\end{equation}
-with the two-dimensional implementation using tensors of shape $H\times W\times d_{\mathrm{in}}$. 
-
 Let $\{x_i\}_{i=1}^{N}\subset\Omega$ be a discretization of the spatial domain. 
-In one dimension, $N=L$ for a grid with $L$ points; in two dimensions, 
+In one dimension, $N=Q$ for a grid with $Q$ points; in two dimensions, 
 $N=HW$ for a Cartesian grid of size $H\times W$. 
 The discretized input field is represented as
 \begin{equation}
@@ -185,62 +208,62 @@ where $\cE_\theta^{(\ell)}$ is decomposed into three light-inspired components:
 \end{equation}
 Here $\cR_\theta$ is reflection, $\cT_\theta$ is refraction, and $\cS_\theta$ is scattering. The reflection and refraction maps act independently at each spatial location and only mix the latent feature dimension. The scattering map operates over the physical domain and is responsible for the propagation of spatial information.
 
-Figure~\ref{fig:light-block} illustrates the block structure. The input latent state is normalized and sent through three branches. Reflection and refraction transform each feature vector locally, while scattering constructs a spatial propagation operator. The three outputs are combined by adaptive mixture weights and passed through a residual projection and pointwise feed-forward correction. 
-In the following subsections, we focus on a single light-evolution block and omit the layer index $\ell$ whenever no ambiguity arises. 
-Thus, $h_i$ denotes the latent feature vector $h_i^{(\ell)}$ at spatial location $x_i$.
+% Fig.~\ref{fig:light-block} illustrates the block structure. The input latent state is normalized and sent through three branches. Reflection and refraction transform each feature vector locally, while scattering constructs a spatial propagation operator. The three outputs are combined by adaptive mixture weights and passed through a residual projection and pointwise feed-forward correction. 
+% In the following subsections, we focus on a single light-evolution block and omit the layer index $\ell$ whenever no ambiguity arises. 
+% Thus, $h_i$ denotes the latent feature vector $h_i^{(\ell)}$ at spatial location $x_i$.
 
-\begin{figure}[t]
-\centering
-\resizebox{0.96\textwidth}{!}{
-\begin{tikzpicture}[
-    node distance=0.65cm and 0.75cm,
-    box/.style={draw, rounded corners, thick, align=center, minimum height=0.72cm, minimum width=1.95cm, fill=blue!5, font=\small},
-    op/.style={draw, rounded corners, thick, align=center, minimum height=0.72cm, minimum width=2.20cm, fill=orange!8, font=\small},
-    scat/.style={draw, rounded corners, thick, align=center, minimum height=0.72cm, minimum width=2.35cm, fill=green!8, font=\small},
-    small/.style={draw, rounded corners, thick, align=center, minimum height=0.68cm, minimum width=1.85cm, fill=purple!6, font=\small},
-    arr/.style={-{Latex[length=1.8mm]}, thick}
-]
+% \begin{figure}[t]
+% \centering
+% \resizebox{0.96\textwidth}{!}{
+% \begin{tikzpicture}[
+%     node distance=0.65cm and 0.75cm,
+%     box/.style={draw, rounded corners, thick, align=center, minimum height=0.72cm, minimum width=1.95cm, fill=blue!5, font=\small},
+%     op/.style={draw, rounded corners, thick, align=center, minimum height=0.72cm, minimum width=2.20cm, fill=orange!8, font=\small},
+%     scat/.style={draw, rounded corners, thick, align=center, minimum height=0.72cm, minimum width=2.35cm, fill=green!8, font=\small},
+%     small/.style={draw, rounded corners, thick, align=center, minimum height=0.68cm, minimum width=1.85cm, fill=purple!6, font=\small},
+%     arr/.style={-{Latex[length=1.8mm]}, thick}
+% ]
 
-\node[box] (input) {$h^{(\ell)}$\\latent state};
-\node[box, right=of input] (norm) {LayerNorm};
-\node[op, above right=0.42cm and 0.75cm of norm] (reflect) {Reflection\\feature mirror};
-\node[op, right=0.75cm of norm] (refract) {Refraction\\anisotropic scale};
-\node[scat, below right=0.42cm and 0.75cm of norm] (scatter) {Scattering\\spatial kernel};
-\node[small, right=0.95cm of refract] (mix) {Adaptive\\mixture};
-\node[box, right=of mix] (proj) {Linear\\projection};
-\node[box, right=of proj, minimum width=0.72cm] (res1) {$+$};
-\node[box, right=of res1] (ffn) {LayerNorm + MLP};
-\node[box, right=of ffn] (output) {$h^{(\ell+1)}$\\latent state};
+% \node[box] (input) {$h^{(\ell)}$\\latent state};
+% \node[box, right=of input] (norm) {LayerNorm};
+% \node[op, above right=0.42cm and 0.75cm of norm] (reflect) {Reflection\\feature mirror};
+% \node[op, right=0.75cm of norm] (refract) {Refraction\\anisotropic scale};
+% \node[scat, below right=0.42cm and 0.75cm of norm] (scatter) {Scattering\\spatial kernel};
+% \node[small, right=0.95cm of refract] (mix) {Adaptive\\mixture};
+% \node[box, right=of mix] (proj) {Linear\\projection};
+% \node[box, right=of proj, minimum width=0.72cm] (res1) {$+$};
+% \node[box, right=of res1] (ffn) {LayerNorm + MLP};
+% \node[box, right=of ffn] (output) {$h^{(\ell+1)}$\\latent state};
 
-\draw[arr] (input) -- (norm);
-\draw[arr] (norm.east) -- ++(0.28,0) |- (reflect.west);
-\draw[arr] (norm) -- (refract);
-\draw[arr] (norm.east) -- ++(0.28,0) |- (scatter.west);
-\draw[arr] (reflect.east) -| (mix.north);
-\draw[arr] (refract.east) -- (mix.west);
-\draw[arr] (scatter.east) -| (mix.south);
-\draw[arr] (mix) -- (proj);
-\draw[arr] (proj) -- (res1);
-% \draw[arr] (input.south) to[out=-70,in=-110] node[below,sloped,font=\scriptsize]{residual} (res1.south);
-\draw[arr]
-    (input.south) -- ++(0,-2.00)
-    -| node[pos=0.25, below, font=\scriptsize]{residual} (res1.south);
-\draw[arr] (res1) -- (ffn);
-\draw[arr] (ffn) -- (output);
+% \draw[arr] (input) -- (norm);
+% \draw[arr] (norm.east) -- ++(0.28,0) |- (reflect.west);
+% \draw[arr] (norm) -- (refract);
+% \draw[arr] (norm.east) -- ++(0.28,0) |- (scatter.west);
+% \draw[arr] (reflect.east) -| (mix.north);
+% \draw[arr] (refract.east) -- (mix.west);
+% \draw[arr] (scatter.east) -| (mix.south);
+% \draw[arr] (mix) -- (proj);
+% \draw[arr] (proj) -- (res1);
+% % \draw[arr] (input.south) to[out=-70,in=-110] node[below,sloped,font=\scriptsize]{residual} (res1.south);
+% \draw[arr]
+%     (input.south) -- ++(0,-2.00)
+%     -| node[pos=0.25, below, font=\scriptsize]{residual} (res1.south);
+% \draw[arr] (res1) -- (ffn);
+% \draw[arr] (ffn) -- (output);
 
-\node[
-    draw,
-    dashed,
-    rounded corners,
-    fit=(reflect)(refract)(scatter)(mix),
-    inner sep=0.18cm,
-    label={[font=\small]above:{light-inspired latent evolution}}
-] {};
-\end{tikzpicture}
-}
-\caption{Schematic of a LiNO evolution block. Reflection and refraction are pointwise transformations along the latent feature dimension, whereas scattering propagates information over the spatial domain through a learned kernel. The three branches are combined by input-dependent mixture weights.}
-\label{fig:light-block}
-\end{figure}
+% \node[
+%     draw,
+%     dashed,
+%     rounded corners,
+%     fit=(reflect)(refract)(scatter)(mix),
+%     inner sep=0.18cm,
+%     label={[font=\small]above:{light-inspired latent evolution}}
+% ] {};
+% \end{tikzpicture}
+% }
+% \caption{Schematic of a LiNO evolution block. Reflection and refraction are pointwise transformations along the latent feature dimension, whereas scattering propagates information over the spatial domain through a learned kernel. The three branches are combined by input-dependent mixture weights.}
+% \label{fig:light-block}
+% \end{figure}
 
 \subsection{Reflection: adaptive feature-space mirror transformation}
 
@@ -306,7 +329,8 @@ The refraction operator is then defined by
     h_i^{\parallel}+\eta h_i^{\perp},
     \label{eq:refraction}
 \end{equation}
-where $\eta$ is a learnable refractive factor. This construction can be viewed as a simplified Snell-type transformation in latent space: the tangential component $h_i^{\parallel}$ is preserved, while the normal component $h_i^{\perp}$ is rescaled according to a learned refractive contrast. Thus, $\eta$ plays the role of an effective refractive-index ratio, controlling how strongly the latent state is bent, stretched, or compressed along the adaptive normal direction.
+where $\eta$ is a learnable refractive factor. 
+This construction should be understood as a latent-space analogue inspired by the normal–tangential decomposition underlying refraction, rather than a direct discretization of Snell's law in physical space: the tangential component $h_i^{\parallel}$ is preserved, while the normal component $h_i^{\perp}$ is rescaled according to a learned refractive contrast. Thus, $\eta$ plays the role of an effective refractive-index ratio, controlling how strongly the latent state is bent, stretched, or compressed along the adaptive normal direction.
 
 Equivalently, for a fixed unit vector $\widehat v_i$, \eqref{eq:refraction} can be written as
 \begin{equation}
@@ -329,7 +353,6 @@ and then apply it to $h_i$. This would require $O(M^2)$ memory to store $T_i$ an
     h_i + (\eta-1)\inner{h_i}{\widehat v_i}\widehat v_i.
     \label{eq:refraction-matrix-free}
 \end{equation}
-Therefore, the refraction update only requires one inner product $\inner{h_i}{\widehat v_i}$ and one vector rescaling along $\widehat v_i$. The computational cost is reduced from $O(M^2)$ to $O(M)$ per spatial point, with no need to form the dense matrix $T_i$. For a latent field with $N$ spatial points, the overall complexity of the matrix-free refraction layer is $O(NM)$, compared with $O(NM^2)$ for a dense feature-space implementation. This reduction is important in LiNO because refraction is applied inside every light-evolution block and should remain negligible compared with the spatial scattering operation.
 
 The matrix-free representation also clarifies the stability role of refraction. For normalized $\widehat v_i$, the local transformation has eigenvalue $\eta$ along the one-dimensional subspace $\operatorname{span}\{\widehat v_i\}$ and eigenvalue $1$ on the orthogonal complement. Consequently, the spectral norm of the local refraction operator is
 \begin{equation}
@@ -434,7 +457,7 @@ In the implementation, we use
     \phi(z)=\ELU(z)+1,
     \label{eq:elu-feature-map}
 \end{equation}
-which is positive, inexpensive to evaluate, and numerically stable. 
+which is positive, inexpensive to evaluate, and numerically stable \cite{katharopoulos2020transformers}. 
 We emphasize that this deterministic feature map is used as a positive-kernel surrogate rather than an exact finite-dimensional approximation of the exponential kernel.
 
 Because the explicit pairwise positional bias in \eqref{eq:relative-bias} would reintroduce an $N^2$ matrix, efficient scattering injects spatial information through a coordinate encoder instead. Let
@@ -571,13 +594,13 @@ The full block then applies a linear residual projection and a pointwise feed-fo
 Layer normalization is applied before the light branches and before the feed-forward network. This choice is consistent with stable residual architectures and improves the conditioning of the learned latent evolution.
 
 
-\section{Experiments}
+\section{Results}
 \label{sec:experiments}
 \subsection{Experimental setup}
 
 We evaluate the proposed Light-inspired Neural Operator (LiNO) on representative one-dimensional and two-dimensional PDE benchmarks, including Burgers' equation, Darcy flow, and two-dimensional Navier--Stokes dynamics. All datasets are stored in MATLAB format and converted to channel-last PyTorch tensors before training. For a one-dimensional field, the input tensor has shape
 \begin{equation}
-    B\times L\times d_{\mathrm{in}},
+    B\times Q\times d_{\mathrm{in}},
 \end{equation}
 whereas for a two-dimensional field it has shape
 \begin{equation}
@@ -586,9 +609,9 @@ whereas for a two-dimensional field it has shape
 The lifting map sends the last dimension to width $M$, the stacked light-evolution blocks preserve the spatial shape and latent width, and the projection map maps the latent representation to $d_{\mathrm{out}}$ output channels.
 
 All experiments were conducted on a single NVIDIA A800 80G GPU and a 48-core Intel Xeon Gold 6342 CPU.
-Unless otherwise stated, we use latent width $M=128$ and stack $8$ light-evolution blocks. The efficient scattering layer is used as the default scattering module, while the full pairwise scattering layer is retained as a reference implementation for ablation and small-resolution experiments. Burgers' equation is modeled by a one-dimensional LiNO, whereas Darcy flow and Navier--Stokes dynamics are modeled by a two-dimensional LiNO. The same light-evolution block is used across all benchmarks; only the data interface, spatial dimension, input/output channels, and training protocol are changed.
+Unless otherwise stated, we use latent width $M=128$ and stack $8$ light-evolution blocks. The efficient scattering layer is used as the default scattering module, while the full pairwise scattering layer is retained as a reference implementation for ablation and small-resolution experiments.
 
-For all benchmarks, the data are randomly permuted using a fixed seed before splitting. We apply unit Gaussian normalization to the physical input channels and target fields using statistics computed from the training set. Coordinate channels, when used, are concatenated to the physical input channels and are not normalized. The relative error is computed sample-wise by flattening all spatial and channel dimensions and then averaging over the mini-batch.
+For all benchmarks, the data are randomly permuted using a fixed seed before splitting. We apply unit Gaussian normalization to the physical input channels and target fields using statistics computed from the training set. Coordinate channels, when used, are concatenated to the physical input channels and are not normalized. 
 
 \subsection{Training objective}
 
@@ -599,19 +622,18 @@ Given training pairs $\{(a^{(n)},u^{(n)})\}_{n=1}^{N_{\mathrm{train}}}$, LiNO is
     \frac{1}{N_{\mathrm{train}}}
     \sum_{n=1}^{N_{\mathrm{train}}}
     \left[
-    \lambda_{\mathrm{mse}}
-    \norm{\mathcal{G}_{\theta}(a^{(n)})-u^{(n)}}_2^2
+    \norm{\mathcal{G}_{\theta}(a^{(n)})-u^{(n)}}_2
     +
-    \lambda_{\mathrm{rel}}
     \frac{
     \norm{\mathcal{G}_{\theta}(a^{(n)})-u^{(n)}}_2
     }{
     \norm{u^{(n)}}_2
     }
-    \right],
+    \right]
     \label{eq:training-loss}
 \end{equation}
-where $\lambda_{\mathrm{mse}}=\lambda_{\mathrm{rel}}=1$ in the current implementation. The MSE term penalizes pointwise field discrepancies and provides stable gradient information, while the relative $L^2$ term measures the scale-normalized prediction error commonly reported in neural-operator benchmarks.
+in the current implementation. 
+The MSE term penalizes pointwise field discrepancies and provides stable gradient information, while the relative $L^2$ term measures the scale-normalized prediction error commonly reported in neural-operator benchmarks.
 
 For autoregressive time-dependent prediction, we additionally include step-wise rollout errors. Let $\widehat u_{t_m:t_{m+s}}$ and $u_{t_m:t_{m+s}}$ denote the predicted and reference solution segments over the $m$-th output window. The autoregressive relative loss is
 \begin{equation}
@@ -629,14 +651,11 @@ and the full rollout objective is
 \begin{equation}
     \mathcal{J}_{\mathrm{rollout}}(\theta)
     =
-    \lambda_{\mathrm{mse}}
-    \norm{\widehat u_{1:T}-u_{1:T}}_2^2
+    \norm{\widehat u_{1:T}-u_{1:T}}_2
     +
-    \lambda_{\mathrm{ar}}
-    \mathcal{J}_{\mathrm{ar}}(\theta),
+    \mathcal{J}_{\mathrm{ar}}(\theta).
     \label{eq:rollout-loss}
 \end{equation}
-with $\lambda_{\mathrm{mse}}=\lambda_{\mathrm{ar}}=1$.
 
 \subsection{Optimization and evaluation}
 
@@ -645,246 +664,290 @@ All models are trained with the AdamW optimizer with initial learning rate $\eta
 
 \subsection{Burgers' equation}
 
-We first consider the one-dimensional viscous Burgers benchmark, where the task is to learn the solution operator mapping an input function to the corresponding solution field on a uniform grid. The original data are downsampled to resolution $s=256$. The input consists of the physical field concatenated with the normalized coordinate channel, and the output is a scalar solution field. This benchmark provides a controlled setting to examine whether the proposed reflection--refraction--scattering block can capture nonlinear one-dimensional solution operators before being applied to higher-dimensional PDEs.
+We first evaluate LiNO on the one-dimensional viscous Burgers benchmark, where the goal is to learn the solution operator from an input function, interpreted as the initial condition, to the scalar solution field on a uniform grid. 
+All data are downsampled to resolution $s=256$. 
+The input contains the physical field and the normalized coordinate channel, and the output is the scalar solution field.
 
-Table~\ref{tab:burgers-results} reports the best validation relative $L^2$ error observed during training for the standard and efficient scattering variants. On this low-dimensional benchmark, the full pairwise scattering version achieves the smaller validation error. This behavior is consistent with the computational structure of the two scattering operators: when the spatial grid is relatively small, the quadratic full-kernel scattering operator remains affordable and can exploit exact pairwise spatial interactions. The efficient scattering variant substantially reduces the per-epoch training time, but its linearized global propagation introduces an approximation to the full pairwise kernel, leading to a larger error in the present configuration. This suggests that the efficient scattering layer is most advantageous in higher-dimensional or higher-resolution regimes where the quadratic kernel becomes memory- or time-limited.
+For LiNO, the full pairwise scattering variant achieves a best validation relative $L^2$ error of $3.19\times10^{-3}$, with a per-epoch training time of approximately $1$ min $54$ s. 
+The efficient scattering variant obtains an error of $1.09\times10^{-2}$, while reducing the per-epoch training time to approximately $28$ s. 
+Thus, at this moderate one-dimensional resolution, explicit pairwise scattering remains affordable and gives the highest accuracy, whereas efficient scattering provides a favorable accuracy--cost trade-off and is more suitable for higher-dimensional settings where the quadratic kernel becomes expensive.
 
-\begin{table}[t]
-\centering
-\caption{Burgers benchmark at resolution $s=256$. We report the best validation relative $L^2$ error observed during training.}
-\label{tab:burgers-results}
-\begin{tabular}{lcccc}
-\toprule
-Model & Scattering & Train loss & Val. relative $L^2$ & Time per epoch \\
-\midrule
-LiNO & full pairwise & $3.69\times 10^{-3}$ & $5.95\times 10^{-3}$ & 1m 54s \\
-LiNO & efficient & $2.82\times 10^{-3}$ & $1.09\times 10^{-2}$ & 28s \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-For reference, we also compare with the published Burgers results at resolution $s=256$ from Table~3 of the Fourier Neural Operator paper~\cite{li2021fno}. These results are included as a standard reference point for operator learning on the one-dimensional viscous Burgers equation. We emphasize that the baseline numbers are copied from the original FNO paper, whereas the LiNO results are obtained from our current implementation and training protocol. The comparison indicates that LiNO attains competitive accuracy on the Burgers benchmark while using the same light-evolution block later employed for two-dimensional elliptic and time-dependent problems. In particular, the full scattering variant reaches a relative $L^2$ error of approximately $6.0\times10^{-3}$, improving upon the reference FNO result reported in~\cite{li2021fno}. The efficient variant also remains below the FNO reference error while reducing the per-epoch training time by roughly a factor of four compared with efficient scattering. These observations support the use of full scattering for low-dimensional tasks and efficient scattering for more demanding spatial resolutions.
+Table~\ref{tab:burgers-comparison} compares LiNO with representative neural-operator baselines at the same resolution. 
+The reference baselines are taken from the FNO benchmark~\cite{li2021fno}, while the DeepONet and LiNO results are obtained using our current implementation and training protocol. 
+LiNO with full pairwise scattering gives the lowest error, and the efficient variant also outperforms the reported FNO baseline. 
+These results show that the proposed light-evolution block is already competitive on a nonlinear one-dimensional operator-learning task, while retaining a modular scattering mechanism that can be switched between accuracy-oriented and efficiency-oriented regimes.
 
 \begin{table}[t]
 \centering
-\caption{Reference comparison on the 1D Burgers benchmark at resolution $s=256$. The first block reports the published baselines from Table~3 of FNO~\cite{li2021fno}; the second block reports LiNO variants trained in the present implementation.}
+\caption{
+Comparison of validation relative $L^2$ errors on the one-dimensional Burgers benchmark at resolution $s=256$.
+The published baselines are taken from the FNO benchmark~\cite{li2021fno}; DeepONet and LiNO are trained under our implementation and training protocol.
+The best LiNO result is highlighted in bold, and the LiNO rows are shaded.
+}
 \label{tab:burgers-comparison}
 \begin{tabular}{lcc}
 \toprule
-Method & Operator type & Relative $L^2$ error \\
+Method & Operator type & Relative $L^2$ error ($\downarrow$)\\
 \midrule
-NN    & pointwise neural network & 0.4714 \\
-GCN   & graph convolution & 0.3999 \\
-FCN   & fully convolutional network & 0.0958 \\
-PCANN & PCA-based neural operator & 0.0398 \\
-GNO   & graph neural operator & 0.0555 \\
-LNO   & low-rank neural operator & 0.0212 \\
-MGNO  & multipole graph neural operator & 0.0243 \\
-FNO   & Fourier neural operator & 0.0149 \\
+NN    & pointwise neural network & $4.71\times10^{-1}$ \\
+GCN   & graph convolutional operator & $4.00\times10^{-1}$ \\
+FCN   & fully convolutional network & $9.58\times10^{-2}$ \\
+PCANN & PCA-based neural operator & $3.98\times10^{-2}$ \\
+GNO   & graph kernel neural operator & $5.55\times10^{-2}$ \\
+DeepONet & branch--trunk neural operator & $3.50\times10^{-2}$ \\
+LNO   & low-rank neural operator & $2.12\times10^{-2}$ \\
+MGNO  & multipole graph neural operator & $2.43\times10^{-2}$ \\
+FNO   & Fourier neural operator & $1.49\times10^{-2}$ \\
 \midrule
-LiNO & full pairwise scattering & 0.0060 \\
-LiNO & efficient scattering & 0.0109 \\
+\rowcolor{gray!12}
+LiNO & efficient scattering & $1.09\times10^{-2}$ \\
+\rowcolor{gray!12}
+LiNO & full pairwise scattering & $\mathbf{3.19\times10^{-3}}$ \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-Beyond the quantitative results, we further examine the pointwise behavior of the learned solution operator on representative validation samples. Figure~\ref{fig:burgers-qualitative} visualizes four examples obtained with the full pairwise scattering variant. For each sample, the input initial condition, the reference solution, the LiNO prediction, and the pointwise prediction error are shown. The predictions closely follow the reference profiles over the whole spatial domain, including regions with relatively sharp transitions, while the error remains localized and small in magnitude. This qualitative behavior is consistent with the relative $L^2$ errors reported in Tables~\ref{tab:burgers-results} and~\ref{tab:burgers-comparison}.
+Fig.~\ref{fig:burgers-qualitative} shows a representative validation sample. 
+The LiNO prediction closely matches the reference solution over the full spatial domain, including regions with relatively sharp variation. 
+The pointwise error remains localized and small, consistent with the relative $L^2$ errors in Table~\ref{tab:burgers-comparison}.
 
 \begin{figure}[t]
 \centering
-
-\begin{subfigure}[t]{0.85\linewidth}
-    \centering
-    \includegraphics[width=\linewidth]{./burgers1d_256_ex1.png}
-    \caption{Validation sample 1.}
-\end{subfigure}
-
-\vspace{0.5em}
-
-\begin{subfigure}[t]{0.85\linewidth}
-    \centering
-    \includegraphics[width=\linewidth]{./burgers1d_256_ex2.png}
-    \caption{Validation sample 2.}
-\end{subfigure}
-
-\vspace{0.5em}
-
-\begin{subfigure}[t]{0.85\linewidth}
-    \centering
-    \includegraphics[width=\linewidth]{./burgers1d_256_ex3.png}
-    \caption{Validation sample 3.}
-\end{subfigure}
-
-\vspace{0.5em}
-
-\begin{subfigure}[t]{0.85\linewidth}
-    \centering
-    \includegraphics[width=\linewidth]{./burgers1d_256_ex4.png}
-    \caption{Validation sample 4.}
-\end{subfigure}
-
-\caption{Qualitative results for the one-dimensional viscous Burgers benchmark at resolution $s=256$. Four representative validation samples are displayed. In each subfigure, we show the input initial condition, the reference solution, the LiNO prediction, and the pointwise prediction error.}
+\includegraphics[width=\linewidth]{./burgers1d_256_ex1.png}
+\caption{
+Qualitative result for the one-dimensional viscous Burgers benchmark at resolution $s=256$.
+The figure shows the input initial condition, reference solution, LiNO prediction, and pointwise prediction error for a representative validation sample.
+}
 \label{fig:burgers-qualitative}
 \end{figure}
 
+
 \subsection{Darcy flow}
 
-We next consider the two-dimensional Darcy flow benchmark, which is a standard coefficient-to-solution operator learning problem for elliptic PDEs. The input is a heterogeneous coefficient field, optionally augmented by the normalized spatial coordinates, and the output is the corresponding scalar elliptic solution. Compared with the Burgers benchmark, Darcy flow requires a two-dimensional spatial propagation mechanism and is therefore a more direct test of the scattering operator.
+We next consider the two-dimensional Darcy flow benchmark, a standard coefficient-to-solution operator-learning problem for elliptic PDEs. 
+The input is a heterogeneous coefficient field, and the output is the corresponding scalar elliptic solution. 
+Compared with Burgers' equation, this problem more directly tests spatial information propagation, since the elliptic solution depends globally on the coefficient field.
 
-\paragraph{Full pairwise scattering versus efficient scattering.}
+We first compare the full pairwise scattering layer and the efficient scattering layer at resolution $85\times85$, keeping all other LiNO components unchanged. 
+Both variants achieve nearly identical accuracy: the full pairwise model obtains a validation relative $L^2$ error of $5.94\times10^{-3}$, while the efficient model obtains $5.91\times10^{-3}$. 
+Their computational profiles, however, differ substantially. 
+The full pairwise scattering layer peaks at about 12.7 GB of allocated CUDA memory and takes roughly 16.5 hours to train, whereas the efficient scattering layer reduces the peak memory to about 3.23 GB and completes training in approximately 4 hours.
+Thus, on two-dimensional grids, efficient scattering preserves the accuracy of global spatial propagation while substantially improving memory and runtime scalability.
 
-We first compare the full pairwise scattering layer and the efficient scattering layer at resolution $85\times85$. The purpose of this comparison is to isolate the computational effect of the scattering operator while keeping the rest of the LiNO architecture unchanged. The full pairwise scattering layer explicitly constructs global interactions between all spatial grid points, whereas the efficient version replaces the quadratic pairwise kernel by a linearized global propagation mechanism together with a local diffusion branch.
-
-Table~\ref{tab:darcy-scattering} reports the best validation relative $L^2$ errors and the logged computational costs. Both variants achieve essentially the same accuracy, with validation errors around $6\times10^{-3}$. However, their computational profiles differ substantially. The full pairwise scattering layer reaches a peak allocated CUDA memory of about $12.7$ GB and requires more than $16$ hours of training, whereas the efficient scattering layer reduces the peak allocated CUDA memory to about $3.23$ GB and completes training in less than $4$ hours. This comparison confirms that the efficient scattering design preserves the accuracy of global spatial propagation while substantially improving scalability on two-dimensional grids.
-
-\begin{table}[t]
-\centering
-\caption{Darcy flow at resolution $85\times85$: comparison between full pairwise scattering and efficient scattering. Both models use the same LiNO architecture except for the scattering layer. The memory column reports the peak allocated CUDA memory recorded during training.}
-\label{tab:darcy-scattering}
-\begin{tabular}{lccccc}
-\toprule
-Model & Scattering & Train loss & Val. relative $L^2$ & CUDA memory & Training time \\
-\midrule
-LiNO & full pairwise & $3.69\times 10^{-3}$ & $5.95\times 10^{-3}$ & 12.7 GB & 16h 32m 21s \\
-LiNO & efficient     & $6.02\times 10^{-3}$ & $6.01\times 10^{-3}$ & 3.23 GB & 3h 52m 50s \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\paragraph{Resolution study.}
-
-We further evaluate the efficient-scattering LiNO on Darcy grids of increasing spatial resolution. The same architecture is instantiated at resolutions $85\times85$, $141\times141$, $211\times211$, and $421\times421$, without changing the light-evolution block. This experiment is designed to examine whether the proposed architecture remains stable when the number of spatial degrees of freedom increases.
-
-Table~\ref{tab:darcy-resolution} summarizes the results. Across the completed resolutions, the validation relative $L^2$ error remains at the order of $10^{-3}$. The error increases mildly from resolution $s = 85$ to $s = 421$, while the training time grows significantly with resolution. This behavior is expected: higher-resolution inputs contain finer coefficient interfaces and solution structures, but the model width and depth are kept fixed. Importantly, the same efficient-scattering LiNO remains trainable at these resolutions, whereas a full pairwise kernel would become increasingly expensive because its cost scales quadratically with the number of grid points.
+Table~\ref{tab:darcy-resolution-comparison} compares efficient-scattering LiNO with representative published baselines from the FNO benchmark~\cite{li2021fno} across resolutions $s=85,141,211,421$. 
+LiNO consistently outperforms the reported FNO baseline at all tested resolutions. 
+The validation relative $L^2$ error increases mildly from $5.91\times10^{-3}$ at $s=85$ to $8.28\times10^{-3}$ at $s=421$, while remaining below the FNO errors across the full resolution range. 
+The associated training times are approximately $4$, $22$, $38.5$, and $56$ hours for $s=85,141,211,421$, respectively. 
+This confirms that the efficient scattering layer remains trainable at high spatial resolutions where the full pairwise kernel would become increasingly expensive.
 
 \begin{table}[t]
 \centering
-\caption{Resolution study for Darcy flow using efficient scattering.}
-\label{tab:darcy-resolution}
-\begin{tabular}{lccc}
-\toprule
-Resolution & Train loss & Val. relative $L^2$ & Training time \\
-\midrule
-$85 \times 85$   & $3.69\times 10^{-3}$ & $5.95\times 10^{-3}$ & 3h 53m 50s \\
-$141 \times 141$ & $3.32\times 10^{-3}$ & $6.43\times 10^{-3}$ & 22h 1m 59s \\
-$211 \times 211$ & $3.83\times 10^{-3}$ & $6.90\times 10^{-3}$ & 38h 35m 50s \\
-$421\times 421$ & $4.15\times 10^{-3}$ & $8.32\times 10^{-3}$ & 56h 3m 54s \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-The resolution study highlights the intended role of the efficient scattering layer. In the Darcy problem, long-range information exchange is necessary because the elliptic solution depends globally on the coefficient field. At the same time, a direct full-kernel construction over all grid points rapidly becomes impractical. The efficient scattering layer provides a compromise: its linearized global branch propagates information over the entire domain, while the local diffusion branch restores short-range spatial interaction. This combination is particularly suitable for elliptic coefficient-to-solution maps, where both global coupling and local heterogeneity are important.
-
-To further examine the prediction quality at high spatial resolution, we provide 
-representative qualitative results for the $421\times421$ Darcy benchmark in 
-Figure~\ref{fig:darcy-qualitative}. Each row corresponds to one validation sample and displays the input coefficient field, the reference solution, the LiNO prediction, and the pointwise error. The visual comparison shows that LiNO 
-accurately captures the global solution profile as well as the local variations 
-induced by heterogeneous coefficient interfaces. The error remains spatially 
-localized and does not exhibit pronounced global artifacts, which is consistent 
-with the relative $L^2$ error reported in Table~\ref{tab:darcy-resolution}.
-\begin{figure}[t]
-\centering
-\includegraphics[width=0.95\linewidth]{./darcy2d_421_ex1.png}
-\includegraphics[width=0.95\linewidth]{./darcy2d_421_ex2.png}
-\includegraphics[width=0.95\linewidth]{./darcy2d_421_ex3.png}
-\includegraphics[width=0.95\linewidth]{./darcy2d_421_ex4.png}
-\caption{Qualitative evaluation on the Darcy benchmark at resolution $421\times 421$. Four representative validation samples are reported. For each sample, we visualize the input coefficient field, the reference solution, the LiNO prediction, and the pointwise error.}
-\label{fig:darcy-qualitative}
-\end{figure}
-
-For reference, we additionally compare with the published Darcy flow results from Table~4 of the Fourier Neural Operator~\cite{li2021fno}. The baseline results are copied from the original paper and are reported at resolutions $s=85,141,211,421$. 
-
-\begin{table}[t]
-\centering
-\caption{Reference comparison on the Darcy flow benchmark. The first block reports the published baselines from FNO~\cite{li2021fno}; the second block reports LiNO results from the present implementation. All entries are relative $L^2$ errors.}
-\label{tab:darcy-fno-comparison}
+\caption{
+Comparison of validation relative $L^2$ errors on the Darcy flow benchmark at resolutions $s=85,141,211,421$.
+LiNO uses efficient scattering and is trained under our implementation and training protocol.
+The LiNO row is shaded, and the best result at each resolution is highlighted in bold.
+}
+\label{tab:darcy-resolution-comparison}
 \begin{tabular}{lcccc}
 \toprule
 Method & $s=85$ & $s=141$ & $s=211$ & $s=421$ \\
 \midrule
-FCN   & 0.0253 & 0.0493 & 0.0727 & 0.1097 \\
-PCANN & 0.0299 & 0.0298 & 0.0298 & 0.0299 \\
-RBM   & 0.0244 & 0.0251 & 0.0255 & 0.0259 \\
-GNO   & 0.0346 & 0.0332 & 0.0342 & 0.0369 \\
-LNO   & 0.0520 & 0.0461 & 0.0445 & -- \\
-MGNO  & 0.0416 & 0.0428 & 0.0428 & 0.0420 \\
-FNO   & 0.0108 & 0.0109 & 0.0109 & 0.0098 \\
+FCN   & $2.53\times10^{-2}$ & $4.93\times10^{-2}$ & $7.27\times10^{-2}$ & $1.10\times10^{-1}$ \\
+PCANN & $2.99\times10^{-2}$ & $2.98\times10^{-2}$ & $2.98\times10^{-2}$ & $2.99\times10^{-2}$ \\
+RBM   & $2.44\times10^{-2}$ & $2.51\times10^{-2}$ & $2.55\times10^{-2}$ & $2.59\times10^{-2}$ \\
+GNO   & $3.46\times10^{-2}$ & $3.32\times10^{-2}$ & $3.42\times10^{-2}$ & $3.69\times10^{-2}$ \\
+LNO   & $5.20\times10^{-2}$ & $4.61\times10^{-2}$ & $4.45\times10^{-2}$ & -- \\
+MGNO  & $4.16\times10^{-2}$ & $4.28\times10^{-2}$ & $4.28\times10^{-2}$ & $4.20\times10^{-2}$ \\
+FNO   & $1.08\times10^{-2}$ & $1.09\times10^{-2}$ & $1.09\times10^{-2}$ & $9.80\times10^{-3}$ \\
 \midrule
-LiNO with efficient scattering     & 0.0060 & 0.0064 & 0.0069 & 0.0083 \\
+\rowcolor{gray!12}
+LiNO & $\mathbf{5.91\times10^{-3}}$ & $\mathbf{6.37\times10^{-3}}$ & $\mathbf{6.85\times10^{-3}}$ & $\mathbf{8.28\times10^{-3}}$ \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-\subsection{Two-dimensional Navier--Stokes dynamics}
+We further examine the roles of the three light-evolution components on the Darcy benchmark at resolution $s=85$. 
+Table~\ref{tab:darcy2d_ablation_s85} reports the validation relative $L^2$ error obtained by removing one component at a time. 
+The scattering component is indispensable: ablating it degrades performance substantially, raising the error from $5.91\times10^{-3}$ to $5.95\times10^{-2}$---nearly an order of magnitude above that of the full-component efficient scattering model.
+This confirms that nonlocal spatial propagation is essential for the elliptic coefficient-to-solution map. 
+Removing reflection also leads to a measurable degradation, increasing the error to $6.31\times10^{-3}$, whereas removing refraction has only a marginal effect in this example. 
+In particular, scattering provides the dominant global communication mechanism, reflection improves the local feature reorientation near coefficient interfaces, and refraction acts as a weaker anisotropic modulation in this benchmark.
 
-Finally, we consider autoregressive prediction for two-dimensional Navier--Stokes vorticity dynamics. The dataset consists of vorticity trajectories sampled on a $64\times64$ spatial grid. Compared with the Burgers and Darcy benchmarks, this problem is more challenging because the learned operator is repeatedly applied in time. Consequently, even small local prediction errors may be amplified through autoregressive composition and lead to noticeable long-horizon drift.
+\begin{table}[t]
+    \centering
+    \caption{
+    Ablation study of the reflection, refraction, and scattering components on the Darcy2D benchmark at resolution $s=85$.
+    Validation relative $L^2$ errors are reported.
+    }
+    \label{tab:darcy2d_ablation_s85}
+    \begin{tabular}{lc}
+        \toprule
+        Model & Relative $L^2$ error ($\downarrow$) \\
+        \midrule
+        LiNO w/o scattering  & $5.95 \times 10^{-2}$ \\
+        LiNO w/o reflection  & $6.31 \times 10^{-3}$ \\
+        LiNO w/o refraction  & $5.94 \times 10^{-3}$ \\
+        \midrule
+        \rowcolor{gray!12}
+        LiNO                 & $\mathbf{5.91 \times 10^{-3}}$ \\
+        \bottomrule
+    \end{tabular}
+\end{table}
 
-Following the standard autoregressive neural-operator protocol, the first $T_{\mathrm{in}}=10$ vorticity frames are used as the temporal history. At each rollout step, LiNO takes the most recent ten observed or predicted vorticity fields, concatenated with two normalized coordinate channels, and predicts the next vorticity field. Therefore, the input tensor has shape
-\begin{equation}
-    B\times 64\times 64\times 12,
-\end{equation}
-where the $12$ channels consist of ten temporal history channels and two coordinate channels. The output tensor at each step has shape
-\begin{equation}
-    B\times 64\times 64\times 1.
-\end{equation}
-The model is rolled out autoregressively for $T_{\mathrm{out}}=10$ steps with step size one. We use $2000$ trajectories for training and $1000$ trajectories for validation. The same LiNO configuration as in the previous experiments is adopted, with latent width $M=128$, depth $8$, and efficient scattering.
+Fig.~\ref{fig:darcy2d_ablation_s85} provides a qualitative comparison for the same ablation setting. 
+The model without scattering produces visibly larger errors over the whole domain, consistent with the loss of nonlocal spatial coupling. 
+The model without reflection remains close to the full model in global error, but its prediction exhibits less accurate local reconstruction near coefficient interfaces, indicating that reflection helps reorient latent features around sharp material transitions. 
+By contrast, removing refraction causes only minor visual changes in this example, consistent with its small quantitative effect in Table~\ref{tab:darcy2d_ablation_s85}. 
+Overall, the ablation results show that scattering is indispensable for global elliptic coupling, while reflection provides a useful interface-sensitive correction and refraction plays a secondary role for this benchmark.
 
-Since the Navier--Stokes task is time-dependent, we report both the one-step relative error and the full-rollout relative error. The one-step error measures the average prediction accuracy at individual autoregressive updates, whereas the rollout error measures the accumulated discrepancy over the entire predicted trajectory. The best validation checkpoint achieves
-\begin{equation}
-    \mathrm{ValStepError}=2.80\times 10^{-3},
-    \qquad
-    \mathrm{ValRolloutError}=2.92\times 10^{-3}.
-\end{equation}
-At the final training epoch, the corresponding validation errors are
-\begin{equation}
-    \mathrm{ValStepError}=3.17\times 10^{-3},
-    \qquad
-    \mathrm{ValRolloutError}=3.35\times 10^{-3}.
-\end{equation}
-Thus, the checkpoint with the best validation rollout error is used for evaluation.
+\begin{figure}[htbp]
+    \centering
 
-Figure~\ref{fig:ns-qualitative} presents four representative validation trajectories. For each sample, the initial vorticity field is shown on the left, while the subsequent columns compare the reference and predicted vorticity fields at selected rollout times. The upper row corresponds to the reference solution and the lower row corresponds to the LiNO prediction. The predicted fields closely reproduce the dominant coherent structures, phase locations, and large-scale transport patterns of the reference solutions over the displayed horizon. Although small discrepancies are visible in some fine-scale regions, the qualitative agreement indicates that the efficient-scattering LiNO can maintain stable autoregressive predictions for the two-dimensional vorticity dynamics.
+    \begin{subfigure}[t]{0.23\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{./coefficient.png}
+        \caption*{Coefficient}
+        \label{fig:darcy_ablation_coeff}
+    \end{subfigure}
+    \hspace{0.06\textwidth}
+    \begin{subfigure}[t]{0.23\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{./ground_truth.png}
+        \caption*{Ground truth}
+        \label{fig:darcy_ablation_gt}
+    \end{subfigure}
+
+    \vspace{0.8em}
+
+    \begin{subfigure}[t]{0.23\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{./prediction_no_scattering.png}
+        \caption*{Pred., w/o scattering}
+        \label{fig:darcy_ablation_pred_no_scattering}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[t]{0.23\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{./prediction_no_reflection.png}
+        \caption*{Pred., w/o reflection}
+        \label{fig:darcy_ablation_pred_no_reflection}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[t]{0.23\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{./prediction_no_refraction.png}
+        \caption*{Pred., w/o refraction}
+        \label{fig:darcy_ablation_pred_no_refraction}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[t]{0.23\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{./prediction_full.png}
+        \caption*{Pred., full model}
+        \label{fig:darcy_ablation_pred_full}
+    \end{subfigure}
+
+    \vspace{0.8em}
+
+    \begin{subfigure}[t]{0.23\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{./error_no_scattering.png}
+        \caption*{Error, w/o scattering}
+        \label{fig:darcy_ablation_err_no_scattering}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[t]{0.23\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{./error_no_reflection.png}
+        \caption*{Error, w/o reflection}
+        \label{fig:darcy_ablation_err_no_reflection}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[t]{0.23\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{./error_no_refraction.png}
+        \caption*{Error, w/o refraction}
+        \label{fig:darcy_ablation_err_no_refraction}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[t]{0.23\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{./error_full.png}
+        \caption*{Error, full model}
+        \label{fig:darcy_ablation_err_full}
+    \end{subfigure}
+
+    \caption{
+    Qualitative ablation study on the Darcy benchmark at resolution $s=85$.
+    The first row shows the input coefficient field and the reference solution.
+    The second row shows predictions obtained without scattering, without reflection, without refraction, and with the full model.
+    The third row shows the corresponding pointwise errors.
+    Removing scattering causes the largest global degradation, while removing reflection mainly affects the reconstruction near coefficient interfaces.
+    }
+    \label{fig:darcy2d_ablation_s85}
+\end{figure}
+
+
+\subsection{Airfoil flow}
+
+We next evaluate LiNO on a geometry-dependent transonic airfoil benchmark. 
+Unlike the Burgers and Darcy examples, this problem is defined on a body-fitted curvilinear mesh and therefore tests whether the proposed light-evolution block can handle spatially deformed computational domains represented through mesh coordinates. 
+The input consists of the mesh point locations, and the target is the Mach number field on the same mesh. 
+Fig.~\ref{fig:airfoil-qualitative} shows a representative validation example. 
+LiNO accurately reproduces the global Mach distribution around the deformed airfoil and captures the main near-body flow structures. 
+The prediction agrees well with the reference solution in both the far-field region and the vicinity of the airfoil surface. 
+The pointwise error remains spatially localized, with larger discrepancies mainly appearing near regions of strong flow variation around the airfoil. 
+This behavior is consistent with the increased difficulty of geometry-dependent operator learning, where the model must learn both the dependence on the deformed mesh and the associated flow response.
+
+These results indicate that the same LiNO architecture used for Cartesian-grid Burgers and Darcy problems can also be applied to body-fitted airfoil data. 
+Although the current implementation treats the curvilinear mesh as a structured grid with coordinate channels, the experiment suggests that the light-inspired latent evolution remains effective beyond simple rectangular domains. 
+A natural next step is to replace the grid-based scattering layer with mesh-, graph-, or point-cloud-based scattering for fully unstructured aerodynamic geometries.
 
 \begin{figure}[t]
 \centering
+\includegraphics[width=\linewidth]{./airfoil2d_200_50.png}
+\caption{
+Qualitative evaluation on the transonic airfoil benchmark.
+From left to right, the panels show the input body-fitted mesh, the reference Mach number field, the LiNO prediction, and the pointwise error.
+LiNO captures the global flow pattern and the near-airfoil structures, while the largest errors remain localized near regions with strong spatial variation.
+}
+\label{fig:airfoil-qualitative}
+\end{figure}
 
-\begin{subfigure}[t]{0.85\linewidth}
-    \centering
-    \includegraphics[width=\linewidth]{./navierstokes2d_64_ex1.png}
-    \caption{Validation sample 1.}
-\end{subfigure}
 
-\vspace{0.5em}
+\subsection{Two-dimensional Navier--Stokes dynamics}
 
-\begin{subfigure}[t]{0.85\linewidth}
-    \centering
-    \includegraphics[width=\linewidth]{./navierstokes2d_64_ex2.png}
-    \caption{Validation sample 2.}
-\end{subfigure}
+We finally evaluate LiNO on autoregressive prediction of two-dimensional Navier--Stokes vorticity dynamics. 
+Unlike the stationary Burgers and Darcy benchmarks, this task requires repeatedly applying the learned one-step operator in time. 
+It therefore tests whether the efficient-scattering LiNO can maintain stable short-horizon predictions under error accumulation.
 
-\vspace{0.5em}
+The vorticity trajectories are sampled on a $64\times64$ periodic grid. 
+Following the standard autoregressive neural-operator setting, the first $T_{\mathrm{in}}=10$ vorticity frames are used as the input history. 
+At each rollout step, LiNO takes the most recent ten observed or predicted vorticity fields, concatenated with two normalized coordinate channels, and predicts the next vorticity field. 
+Thus, the input tensor has shape $B\times64\times64\times12$, and the one-step output has shape $B\times64\times64\times1$. 
+The model is rolled out for $T_{\mathrm{out}}=10$ future steps. 
+We use $2000$ trajectories for training and $1000$ trajectories for validation, with latent width $M=128$, depth $8$, and efficient scattering.
+The best checkpoint reaches a one-step relative error of $2.80\times10^{-3}$ and a full-rollout relative error of $2.92\times10^{-3}$. 
+At the final epoch, the corresponding errors are $3.17\times10^{-3}$ and $3.35\times10^{-3}$. 
+The small gap between the one-step and rollout errors indicates that the learned dynamics remain stable under autoregressive composition over the ten-step prediction horizon.
+Fig.~\ref{fig:ns-qualitative} shows a representative validation trajectory. 
+The reference vorticity fields are displayed in the upper row and the LiNO predictions in the lower row. 
+LiNO accurately preserves the dominant coherent structures, their phase locations, and the large-scale transport patterns throughout the rollout. 
+Small discrepancies appear mainly in fine-scale regions, but no rapid drift or qualitative instability is observed.
 
-\begin{subfigure}[t]{0.85\linewidth}
-    \centering
-    \includegraphics[width=\linewidth]{./navierstokes2d_64_ex3.png}
-    \caption{Validation sample 3.}
-\end{subfigure}
-
-\vspace{0.5em}
-
-\begin{subfigure}[t]{0.85\linewidth}
-    \centering
-    \includegraphics[width=\linewidth]{./navierstokes2d_64_ex4.png}
-    \caption{Validation sample 4.}
-\end{subfigure}
-
-\caption{Autoregressive prediction on the two-dimensional Navier--Stokes benchmark at resolution $64 \times 64$. For each validation sample, the left panel shows the initial vorticity, while the remaining columns compare reference vorticity fields on the upper row and LiNO predictions on the lower row at selected rollout times.}
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{./navierstokes2d_64_ex3.png}
+\caption{
+Autoregressive prediction on the two-dimensional Navier--Stokes benchmark at resolution $s = 64$.
+The left panel shows the initial vorticity field.
+The remaining columns compare reference vorticity fields in the upper row and LiNO predictions in the lower row at selected rollout times.
+}
 \label{fig:ns-qualitative}
 \end{figure}
 
-To further quantify the temporal stability of the learned rollout, we evaluate the relative $L^2$ prediction error at each future time step. Let
-$\widehat{\omega}_{t_{\rm in}+k}^{(n)}$ and
-$\omega_{t_{\rm in}+k}^{(n)}$ denote the predicted and reference vorticity fields, respectively, at the $k$-th rollout step for the $n$-th validation trajectory. The step-wise relative error is defined as
+To quantify temporal stability, we report the step-wise relative error along the rollout horizon. 
+For the $k$-th future step, the error is computed by averaging the relative $L^2$ discrepancy over all validation trajectories,
 \begin{equation}
 \mathrm{RelErr}_k
 =
@@ -902,52 +965,70 @@ $\omega_{t_{\rm in}+k}^{(n)}$ denote the predicted and reference vorticity field
 \right\|_{2}
 },
 \qquad
-k=1,\ldots,T_{\rm out},
+k=1,\ldots,T_{\rm out}.
 \label{eq:temporal-relerr}
 \end{equation}
-where $N_{\rm val}$ is the number of validation trajectories, $t_{\rm in}$ is the input history length, and $T_{\rm out}$ is the rollout horizon. In the discrete implementation, the norms in \eqref{eq:temporal-relerr} are computed as Euclidean norms over all spatial grid points.
-
-Figure~\ref{fig:ns-temporal-error} reports the temporal evolution of \(\mathrm{RelErr}_k\) over the ten-step autoregressive horizon. The mean error increases from approximately $1.5\times10^{-3}$ at the first rollout step to about $3.5\times10^{-3}$ at the final step. This gradual increase is expected for autoregressive prediction, since each new input window contains an increasing fraction of previously predicted states. Importantly, the error remains below $4\times10^{-3}$ throughout the full horizon and does not exhibit rapid growth or instability. The shaded region shows one standard deviation across validation trajectories, indicating moderate sample-to-sample variability while preserving the same overall stable trend. These results support that the efficient-scattering LiNO provides a stable learned time-marching mechanism for this Navier--Stokes benchmark.
+Fig.~\ref{fig:ns-temporal-error} shows that the mean error increases gradually from approximately $1.5\times10^{-3}$ at the first prediction step to about $3.5\times10^{-3}$ at the final step. 
+The error remains below $4\times10^{-3}$ throughout the rollout, and the standard-deviation band shows moderate sample-to-sample variation without unstable growth. 
+These results indicate that efficient scattering provides sufficient nonlocal spatial communication for stable learned time marching in this vorticity benchmark.
 
 \begin{figure}[t]
 \centering
-\includegraphics[width=0.75\linewidth]{./ns_temporal_error.pdf}
-\caption{Temporal error behavior of efficient LiNO on the two-dimensional Navier--Stokes benchmark. The curve reports the mean step-wise relative $L^2$ error along the autoregressive rollout horizon, and the shaded region denotes one standard deviation over validation trajectories.}
+\includegraphics[width=0.75\linewidth]{./ns_temporal_error.png}
+\caption{
+Temporal error behavior of efficient-scattering LiNO on the two-dimensional Navier--Stokes benchmark.
+The curve reports the mean step-wise relative $L^2$ error over the autoregressive rollout horizon, and the shaded region denotes one standard deviation across validation trajectories.
+}
 \label{fig:ns-temporal-error}
 \end{figure}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
 \section{Conclusion}
 \label{sec:conclusion}
 
-We have presented a Light-inspired Neural Operator (LiNO) for learning solution operators of parametric PDEs. The proposed architecture organizes latent evolution through three optical mechanisms: reflection, refraction, and scattering. Reflection and refraction perform adaptive pointwise transformations in the latent feature space, enabling local reorientation and anisotropic modulation of hidden states, while scattering realizes nonlocal spatial propagation through a learned kernel over the physical domain. The standard scattering layer implements a normalized nonlinear kernel with relative positional bias, whereas the efficient scattering layer combines positive-feature linearized global propagation with a local diffusion branch. This design separates local feature transformation from spatial information exchange, leading to a mathematically transparent and implementation-compatible neural-operator framework for one- and two-dimensional PDE surrogate modeling.
+We have introduced the Light-inspired Neural Operator (LiNO), a neural-operator architecture that organizes latent evolution through three interpretable mechanisms inspired by light transport: reflection, refraction, and scattering. 
+Reflection and refraction act as adaptive pointwise transformations in the latent feature space, enabling local feature reorientation and anisotropic modulation. 
+Scattering provides nonlocal spatial propagation through a learned kernel over the physical domain. 
+This decomposition separates local feature transformation from global information exchange, yielding a modular operator-learning framework that is compatible with both one- and two-dimensional PDE surrogate modeling.
+A key component of LiNO is its scattering mechanism. 
+The full pairwise scattering layer provides an expressive normalized kernel with relative positional bias, while the efficient scattering layer replaces the quadratic pairwise interaction by positive-feature linearized global propagation combined with a local diffusion branch. 
+This design preserves the role of nonlocal spatial communication while substantially reducing memory and runtime costs on two-dimensional grids. 
+The ablation study on Darcy flow further confirms that scattering is the dominant component for elliptic coefficient-to-solution maps, while reflection improves local feature reconstruction near coefficient interfaces and refraction provides an additional but weaker anisotropic modulation.
 
-Numerical experiments on Burgers' equation, Darcy flow, and two-dimensional Navier--Stokes dynamics demonstrate that the same light-evolution block can be instantiated across elliptic, and time-dependent PDE benchmarks. The full pairwise scattering layer is effective on low-dimensional problems where exact global interactions are affordable, while the efficient scattering layer substantially improves scalability on two-dimensional grids without sacrificing accuracy in the tested Darcy and Navier--Stokes settings. These results suggest that optical transport principles provide a useful inductive bias for constructing interpretable and modular neural operators.
+Numerical experiments demonstrate that the same light-evolution block can be used across several PDE operator-learning settings. 
+On the one-dimensional Burgers benchmark, full pairwise scattering achieves high accuracy when exact global interactions remain affordable. 
+On Darcy flow, efficient-scattering LiNO consistently improves over the reported FNO baseline across multiple resolutions, while remaining trainable up to $s=421$. 
+On the geometry-dependent transonic airfoil benchmark, LiNO captures the global Mach field and near-body flow structures on a body-fitted curvilinear mesh. 
+On two-dimensional Navier--Stokes vorticity dynamics, efficient-scattering LiNO maintains stable autoregressive rollout, with step-wise errors remaining below $4\times10^{-3}$ over the ten-step prediction horizon. 
+Together, these results indicate that light-inspired latent transport provides a useful inductive bias for building interpretable and scalable neural operators.
 
-Several directions remain for future work. First, the present implementation focuses mainly on structured Cartesian grids. Extending LiNO to complex geometries, irregular domains, and moving boundaries is an important next step for applications in engineering simulation and multiphysics modeling. This may require replacing grid-based scattering with mesh-, graph-, or point-cloud-based propagation operators, so that the light-inspired evolution can act directly on unstructured discretizations. Second, the current scattering mechanisms can be further generalized to handle adaptive resolution, multiscale refinement, and heterogeneous sampling densities. Such extensions would make LiNO more suitable for high-resolution simulations with localized sharp layers, interfaces, or turbulent structures. Third, it would be valuable to incorporate additional physical constraints, such as conservation laws, boundary conditions, symmetry, equivariance, or energy stability, into the reflection, refraction, and scattering components. Finally, a deeper theoretical analysis of approximation properties, stability under autoregressive rollout, and resolution-invariant generalization would help clarify when and why light-inspired latent transport improves neural-operator learning.
+Several directions remain open. 
+First, the current implementation mainly treats structured Cartesian or curvilinear grids. 
+Extending LiNO to fully unstructured meshes, point clouds, and moving-boundary geometries would broaden its applicability to realistic engineering simulations. 
+This requires replacing grid-based scattering with mesh-, graph-, or point-cloud-based propagation while preserving the reflection--refraction--scattering decomposition. 
+Second, the scattering mechanism can be further generalized to adaptive resolutions, multiscale discretizations, and heterogeneous sampling densities, which are important for localized sharp layers, interfaces, shocks, and turbulent structures. 
+Third, incorporating physical constraints such as conservation, boundary conditions, symmetry, equivariance, or energy stability into the light-evolution block could improve reliability in long-time prediction and high-fidelity simulation. 
+Finally, a more systematic theoretical analysis of approximation, stability, and resolution transfer would help clarify when and why light-inspired latent evolution improves operator learning.
 
-Overall, LiNO provides an initial step toward physically motivated neural operators whose internal mechanisms are not merely black-box transformations, but are structured according to interpretable geometric and transport principles. We expect that this perspective can be further developed for complex-domain PDEs, point-cloud-based scientific data, and large-scale surrogate modeling of realistic physical systems.
+Overall, LiNO provides a step toward physically motivated neural operators whose internal mechanisms are not purely black-box transformations, but are structured around interpretable geometric and transport principles. 
+We expect this perspective to be useful for developing scalable neural surrogates for complex-domain PDEs, geometry-dependent physical systems, and large-scale scientific computing applications.
 
-\section*{Acknowledgements}
-Jingrun Chen is supported by NSFC Major Research Plan -  Interpretable and General-purpose Next-generation Artificial Intelligence (Nos 92570001 and 92370205), NSFC grant 12425113, and the Key Laboratory of the Ministry of Education for Mathematical Foundations and Applications of Digital Technology, University of Science and Technology of China. Keke Wu is supported by the China Postdoctoral Science Foundation under Grant Number 2025M773105 and the Jiangsu Funding Program for Excellent Postdoctoral Talent.
+
+% \section*{Data availability}
+
+
+% \section*{Code availability}
+% The source code is publicly available at \url{https://github.com/wukekever/Light-inspired-neural-operator}.
+
+% \section*{Acknowledgements}
+% J. Chen is supported by NSFC Major Research Plan -  Interpretable and General-purpose Next-generation Artificial Intelligence (Nos 92570001 and 92370205), NSFC grant 12425113, and the Key Laboratory of the Ministry of Education for Mathematical Foundations and Applications of Digital Technology, University of Science and Technology of China. K. Wu is supported by the China Postdoctoral Science Foundation under Grant Number 2025M773105 and the Jiangsu Funding Program for Excellent Postdoctoral Talent. Y. Zhang is supported by the NSFC of China (12501582). 
+
+% \section*{Author contributions}
+
+
+% \section*{Competing interests}
+% The authors declare no competing interests.
 
 \appendix
 
@@ -1033,6 +1114,59 @@ two normalized coordinate channels,
 and the output is the scalar solution field $u(x,y)$. We evaluate the model at multiple 
 resolutions, including $85^2$, $141^2$, $211^2$, and $421^2$, to test the scalability of the efficient scattering layer.
 
+\subsection{Transonic airfoil flow}
+\label{app:airfoil}
+
+The airfoil benchmark considers inviscid transonic flow over a deformed airfoil. 
+The governing equations are the two-dimensional compressible Euler equations,
+\begin{align}
+    \frac{\partial \rho}{\partial t}
+    + \nabla\cdot(\rho \bm{v})
+    &= 0,
+    \label{eq:app-airfoil-mass}
+    \\
+    \frac{\partial \rho\bm{v}}{\partial t}
+    + \nabla\cdot\left(\rho\bm{v}\otimes\bm{v}+p\I\right)
+    &= 0,
+    \label{eq:app-airfoil-momentum}
+    \\
+    \frac{\partial E}{\partial t}
+    + \nabla\cdot\left((E+p)\bm{v}\right)
+    &= 0,
+    \label{eq:app-airfoil-energy}
+\end{align}
+where $\rho$ is the density, $\bm{v}$ is the velocity, $p$ is the pressure, and $E$ is the total energy. 
+Viscous effects are neglected. 
+The far-field condition is specified by
+\begin{equation}
+    \rho_{\infty}=1,\qquad
+    p_{\infty}=1.0,\qquad
+    M_{\infty}=0.8,\qquad
+    \mathrm{AoA}=0,
+    \label{eq:app-airfoil-farfield}
+\end{equation}
+where $M_{\infty}$ is the free-stream Mach number and $\mathrm{AoA}$ is the angle of attack. 
+A no-penetration boundary condition is imposed on the airfoil surface.
+
+The airfoil geometry is parameterized by a design-element deformation. 
+The initial NACA-0012 profile is mapped to a cubic design element with eight control nodes. 
+New airfoil shapes are generated by vertically displacing these control nodes, with displacement sampled from
+\begin{equation}
+    d \sim \mathbb{U}[-0.05,0.05].
+    \label{eq:app-airfoil-deformation}
+\end{equation}
+The resulting deformed airfoil is discretized using a body-fitted mesh.
+
+The operator-learning task is to approximate the map from the mesh geometry to the corresponding Mach number field,
+\begin{equation}
+    \mathcal{G}_{\mathrm{airfoil}}:
+    (x,y) \mapsto M(x,y),
+    \label{eq:app-airfoil-map}
+\end{equation}
+where $(x,y)$ denotes the physical mesh coordinates and $M(x,y)$ is the Mach number evaluated at the mesh points. 
+In the implementation, the input tensor contains the physical coordinate channels of the body-fitted mesh, and the output tensor contains the scalar Mach number field.
+
+
 \subsection{Two-dimensional incompressible Navier--Stokes equation}
 \label{app:navier-stokes}
 
@@ -1102,7 +1236,9 @@ Repeated application of $\mathcal{G}_{\mathrm{NS}}$ yields the full autoregressi
 \section{Feature representation of the exponential dot-product kernel}
 \label{app:exp-kernel-feature}
 
-This appendix recalls the feature-map interpretation of the exponential dot-product kernel, which motivates the positive separable kernel used in the efficient scattering layer. 
+This appendix is intended only to motivate the use of positive separable kernels for efficient scattering. The specific implementation in the main experiments uses $\phi(z)=\ELU(z)+1$, which should be viewed as a practical 
+linear-attention feature map rather than a truncated Taylor or Mercer approximation of the exponential kernel.
+
 For $q,k\in\R^d$, the exponential dot-product kernel admits the Taylor expansion
 \begin{equation}
     \exp(q^\top k)
@@ -1185,6 +1321,32 @@ where the feature map $\Phi$ is given by
     \right).
     \label{eq:app-infinite-feature-map}
 \end{equation}
+
+\paragraph{Connection to Mercer's theorem.}
+The derivation above is a concrete instance of Mercer's theorem. Mercer’s theorem states that for a continuous symmetric positive-definite kernel $K(x,y)$ defined on a compact set $\mathcal{X}\times\mathcal{X}$, there exists a Hilbert space $\mathcal{H}$ and a feature map $\Phi:\mathcal{X}\to\mathcal{H}$ such that
+\begin{equation}
+    K(x,y)=\langle\Phi(x),\Phi(y)\rangle_{\mathcal{H}},
+\end{equation}
+where the inner product is taken in $\mathcal{H}$. This theorem guarantees that any positive-definite kernel can be represented as an inner product in some (possibly infinite-dimensional) feature space.
+
+For the exponential dot-product kernel $K(q,k)=\exp(q^\top k)$, we have explicitly constructed this feature map $\Phi$, whose image space $\mathcal{H}$ is the Hilbert direct sum of tensor spaces:
+\begin{equation}
+    \mathcal{H}=\bigoplus_{m=0}^{\infty}\mathcal{H}_m,\qquad\text{where }\mathcal{H}_m=(\R^d)^{\otimes m}.
+\end{equation}
+The corresponding inner product is the sum of inner products at each order:
+\begin{equation}
+    \langle\Phi(q),\Phi(k)\rangle_{\mathcal{H}}
+    =
+    \sum_{m=0}^{\infty}
+    \left\langle
+    \frac{q^{\otimes m}}{\sqrt{m!}},
+    \frac{k^{\otimes m}}{\sqrt{m!}}
+    \right\rangle_{\mathcal{H}_m}.
+\end{equation}
+This is precisely the explicit form of the Mercer decomposition: the kernel is decomposed into a countable infinity of orthogonal feature functions (here, tensor monomials) with weights $1/m!$.
+
+Note that Mercer's theorem classically requires the kernel to be defined on a compact domain and to satisfy square-integrability conditions. The exponential dot-product kernel is defined on all of $\R^d$, so strictly speaking one needs additional regularization (e.g., restricting $\|q\|,\|k\|\leq R$) to apply the classical theorem directly. However, as shown by equation~\eqref{eq:app-feature-map-norm}, the feature map has finite norm as long as $\|q\|$ is finite, so the construction remains valid on any locally compact set.
+
 The map $\Phi(q)$ is well defined as an element of the Hilbert direct sum of tensor spaces. Indeed,
 \begin{equation}
     \|\Phi(q)\|^2
@@ -1261,7 +1423,7 @@ Equivalently, it can be written as
 This is the compressed symmetric-tensor representation of the second-order full tensor product. 
 It shows explicitly that the exponential dot-product kernel contains not only linear interactions between $q$ and $k$, but also higher-order polynomial interactions.
 
-\paragraph{Truncated feature expansion.}
+\paragraph{Truncated feature expansion and its Mercer perspective.}
 If the infinite series is truncated at order $P$, one obtains the finite-dimensional polynomial approximation
 \begin{equation}
     \exp(q^\top k)
@@ -1286,7 +1448,23 @@ where
     \frac{1}{\sqrt{P!}}q^{\otimes P}
     \right).
 \end{equation}
-This truncated map gives a direct finite-dimensional approximation of the exponential kernel. 
+
+From the Mercer perspective, truncation to order $P$ amounts to retaining only the first $P+1$ Mercer eigencomponents and discarding all higher-order ones:
+\begin{equation}
+    \exp(q^\top k)\approx\sum_{m=0}^{P}\frac{(q^\top k)^m}{m!}
+    =
+    \sum_{m=0}^{P}\lambda_m\,\psi_m(q)\,\psi_m(k),
+\end{equation}
+where $\lambda_m=1/m!$ and $\psi_m(q)=q^{\otimes m}$ (under the appropriate normalization). This reveals the nature of the truncated approximation: it is a \emph{finite-rank Mercer approximation} that approximates the infinite-dimensional kernel with finitely many feature functions. The error arises from the discarded high-order Mercer components:
+\begin{equation}
+    \text{Error}
+    =
+    \sum_{m=P+1}^{\infty}\frac{(q^\top k)^m}{m!}
+    \leq
+    \frac{\exp(|q^\top k|)\cdot|q^\top k|^{P+1}}{(P+1)!}.
+\end{equation}
+When $|q^\top k|$ is small, the truncation error decays factorially with $P$.
+
 However, its dimension grows rapidly with both $d$ and $P$. 
 If the full tensor products are used, the number of features up to order $P$ is
 \begin{equation}
@@ -1311,24 +1489,16 @@ In the infinite-dimensional representation, all higher-order tensor features van
 \end{equation}
 This case illustrates the role of the constant component in the feature map: it provides a nonzero baseline interaction when the dot-product similarity vanishes.
 
-Consequently, softmax attention can be interpreted as a normalized kernel method with an implicit infinite-dimensional feature map:
-\begin{equation}
-    K_{ij}
-    =
-    \frac{
-    \exp(q_i^\top k_j)
-    }{
-    \sum_{\ell=1}^{N}\exp(q_i^\top k_\ell)
-    }.
-\end{equation}
-The efficient scattering layer does not explicitly construct the infinite-dimensional map $\Phi$. 
-Instead, it introduces a finite-dimensional positive feature map $\phi$ and replaces the exponential kernel by the separable surrogate
+\paragraph{From Mercer decomposition to separable surrogate kernels.}
+The Mercer analysis above shows that the exact exponential kernel requires an infinite-dimensional feature representation. In practice, explicitly constructing the tensor features $\Phi(q)$ is infeasible (the dimension grows exponentially with $d$ and $P$). The efficient scattering layer therefore does not attempt to reproduce the infinite Mercer map $\Phi$ exactly. Instead, it introduces a \emph{finite-dimensional, componentwise-positive surrogate feature map} $\phi:\R^d\to\R^D_+$ (with $D\ll\infty$) and constructs a separable surrogate kernel:
 \begin{equation}
     \widetilde\kappa(q_i,k_j)
     =
     \phi(q_i)^\top \phi(k_j).
     \label{eq:app-separable-surrogate}
 \end{equation}
+This can be viewed as a \emph{practical variant} of Mercer's theorem: rather than demanding an exact representation of the original kernel, one seeks a computationally feasible positive-definite kernel that preserves the normalized weighted-averaging structure of softmax attention. From the operator-theoretic viewpoint, this amounts to approximating the original infinite-rank integral operator by a finite-rank positive-definite operator.
+
 After normalization over the index $j$, this surrogate defines nonnegative scattering weights:
 \begin{equation}
     \widetilde K_{ij}
@@ -1346,6 +1516,7 @@ After normalization over the index $j$, this surrogate defines nonnegative scatt
 provided that $\phi$ is componentwise positive, as is the case for $\phi(z)=\ELU(z)+1$. 
 Thus, the finite-dimensional positive feature map preserves the normalized weighted-averaging structure of softmax attention while allowing the scattering output to be computed without forming an explicit $N\times N$ pairwise kernel matrix. 
 In this sense, the feature map used in Section~\ref{sec:efficient-scattering} should be understood as a positive-kernel surrogate rather than an exact finite-dimensional approximation of the exponential kernel.
+
 
 \bibliographystyle{unsrt} 
 \bibliography{references.bib}

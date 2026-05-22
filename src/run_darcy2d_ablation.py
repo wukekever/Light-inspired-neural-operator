@@ -71,6 +71,13 @@ def get_parser():
         # default="standard",
         choices=["efficient", "standard"],
     )  # scattering type for the light-inspired layers, "efficient" uses the optimized implementation, while "standard" uses the original scattering transform
+    parser.add_argument(
+        "--light-components",
+        type=str,
+        nargs="+",
+        default=["reflection", "refraction", "scattering"],
+        choices=["reflection", "refraction", "scattering", "r", "t", "s"],
+    )  # enabled light-evolution branches; useful for Darcy ablation experiments
 
     parser.add_argument("--epochs", type=int, default=500)
     parser.add_argument("--lr", type=float, default=1e-3)
@@ -224,6 +231,7 @@ def main():
         num_features=args.num_features,
         depth=args.depth,
         scattering_type=args.scattering_type,
+        light_components=args.light_components,
     ).to(device)
 
     optimizer = torch.optim.AdamW(

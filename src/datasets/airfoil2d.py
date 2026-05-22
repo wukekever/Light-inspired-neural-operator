@@ -34,7 +34,9 @@ def _resolve_npy_file(data_path: str | Path, filename: str) -> Path:
     return candidate.resolve()
 
 
-def _load_airfoil_arrays(data_path: str | Path) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+def _load_airfoil_arrays(
+    data_path: str | Path,
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     """Load Geo-FNO NACA airfoil arrays.
 
     Expected files:
@@ -51,11 +53,17 @@ def _load_airfoil_arrays(data_path: str | Path) -> tuple[torch.Tensor, torch.Ten
     q = torch.from_numpy(np.load(q_path)).float()
 
     if x.shape != y.shape:
-        raise ValueError(f"X and Y mesh arrays must have the same shape, got {x.shape} vs {y.shape}")
+        raise ValueError(
+            f"X and Y mesh arrays must have the same shape, got {x.shape} vs {y.shape}"
+        )
     if x.ndim != 3:
-        raise ValueError(f"Expected X/Y arrays with shape [N, nx, ny], got {tuple(x.shape)}")
+        raise ValueError(
+            f"Expected X/Y arrays with shape [N, nx, ny], got {tuple(x.shape)}"
+        )
     if q.ndim not in (3, 4):
-        raise ValueError(f"Expected Q array with shape [N, nx, ny] or [N, C, nx, ny], got {tuple(q.shape)}")
+        raise ValueError(
+            f"Expected Q array with shape [N, nx, ny] or [N, C, nx, ny], got {tuple(q.shape)}"
+        )
     return x, y, q
 
 
@@ -138,7 +146,7 @@ def build_airfoil2d_splits(
         target = resize_field_batch_nd(target, target_size, mode="bilinear")
 
     inputs = torch.stack((mesh_x, mesh_y), dim=-1)  # [N, nx, ny, 2]
-    targets = target.unsqueeze(-1)                 # [N, nx, ny, 1]
+    targets = target.unsqueeze(-1)  # [N, nx, ny, 1]
 
     if use_coord:
         coord = make_coord_grid_nd(inputs.shape[1:-1], dtype=inputs.dtype)
@@ -155,7 +163,9 @@ def build_airfoil2d_splits(
     y_normalizer = UnitGaussianNormalizer(train_y)
 
     if normalize_x:
-        train_x, val_x = _normalize_geometry_channels(train_x, val_x, x_normalizer, geom_channels=2)
+        train_x, val_x = _normalize_geometry_channels(
+            train_x, val_x, x_normalizer, geom_channels=2
+        )
     if normalize_y:
         train_y = y_normalizer.encode(train_y)
         val_y = y_normalizer.encode(val_y)

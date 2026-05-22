@@ -82,7 +82,9 @@ def rollout_autoregressive(
 
 
 @torch.no_grad()
-def relative_l2_per_step(pred: torch.Tensor, target: torch.Tensor, eps: float = 1e-12) -> torch.Tensor:
+def relative_l2_per_step(
+    pred: torch.Tensor, target: torch.Tensor, eps: float = 1e-12
+) -> torch.Tensor:
     """
     Compute sample-wise relative L2 error at each rollout step.
 
@@ -93,20 +95,26 @@ def relative_l2_per_step(pred: torch.Tensor, target: torch.Tensor, eps: float = 
         errors: tensor with shape [B, T].
     """
     if pred.shape != target.shape:
-        raise ValueError(f"pred and target must have the same shape, got {tuple(pred.shape)} vs {tuple(target.shape)}")
+        raise ValueError(
+            f"pred and target must have the same shape, got {tuple(pred.shape)} vs {tuple(target.shape)}"
+        )
     if pred.ndim != 4:
-        raise ValueError(f"Expected [B, H, W, T] tensors, got shape {tuple(pred.shape)}")
+        raise ValueError(
+            f"Expected [B, H, W, T] tensors, got shape {tuple(pred.shape)}"
+        )
 
     diff = pred - target
-    diff_norm = torch.sqrt(torch.sum(diff ** 2, dim=(1, 2)) + eps)
-    target_norm = torch.sqrt(torch.sum(target ** 2, dim=(1, 2)) + eps)
+    diff_norm = torch.sqrt(torch.sum(diff**2, dim=(1, 2)) + eps)
+    target_norm = torch.sqrt(torch.sum(target**2, dim=(1, 2)) + eps)
     return diff_norm / target_norm
 
 
 def build_split_from_config(cfg: dict, use_coord: bool):
     dataset_name = cfg.get("dataset_name")
     if dataset_name != "navierstokes2d":
-        raise ValueError(f"eval_temporal_error.py only supports navierstokes2d, got {dataset_name!r}")
+        raise ValueError(
+            f"eval_temporal_error.py only supports navierstokes2d, got {dataset_name!r}"
+        )
 
     target_size = cfg.get("target_size")
     if target_size is not None:
@@ -127,8 +135,12 @@ def build_split_from_config(cfg: dict, use_coord: bool):
 
 
 def build_model_from_checkpoint(ckpt: dict, cfg: dict, split, device: torch.device):
-    model_in_channels = ckpt.get("in_channels", cfg.get("in_channels", split.input_channels))
-    model_out_channels = ckpt.get("out_channels", cfg.get("out_channels", split.output_channels))
+    model_in_channels = ckpt.get(
+        "in_channels", cfg.get("in_channels", split.input_channels)
+    )
+    model_out_channels = ckpt.get(
+        "out_channels", cfg.get("out_channels", split.output_channels)
+    )
     model_spatial_dims = ckpt.get("spatial_dims", split.spatial_dims)
 
     model = LightNeuralOperator(
@@ -152,11 +164,7 @@ def build_model_from_checkpoint(ckpt: dict, cfg: dict, split, device: torch.devi
 
 
 def plot_temporal_error(
-    mean_error: np.ndarray,
-    std_error: np.ndarray,
-    output_path: Path,
-    *,
-    title: str = "Navier--Stokes temporal error",
+    mean_error: np.ndarray, std_error: np.ndarray, output_path: Path
 ) -> None:
     rollout_steps = np.arange(1, len(mean_error) + 1)
 
@@ -175,8 +183,14 @@ def plot_temporal_error(
         }
     )
 
-    fig, ax = plt.subplots(figsize=(6.2, 4.2))
-    ax.plot(rollout_steps, mean_error, marker="o", linewidth=2.0, label="Efficient LiNO")
+    fig, ax = plt.subplots(figsize=(5, 4))
+    from matplotlib.ticker import ScalarFormatter
+
+    ax.yaxis.set_major_formatter(ScalarFormatter(useMathText=True))
+    ax.ticklabel_format(axis="y", style="sci", scilimits=(0, 0))
+    ax.plot(
+        rollout_steps, mean_error, marker="o", linewidth=2.0, label="Efficient LiNO"
+    )
     ax.fill_between(
         rollout_steps,
         mean_error - std_error,
@@ -186,8 +200,8 @@ def plot_temporal_error(
     )
 
     ax.set_xlabel("Rollout step")
+    ax.set_xticks(np.arange(1, len(mean_error) + 1))
     ax.set_ylabel(r"Relative $L^2$ error")
-    ax.set_title(title)
     ax.grid(True, linestyle="--", linewidth=0.5, alpha=0.6)
     ax.legend(frameon=False)
     fig.tight_layout()
@@ -209,7 +223,9 @@ def main(args) -> None:
     ckpt = torch.load(args.ckpt_path, map_location=device)
     cfg = ckpt.get("config") or ckpt.get("args")
     if cfg is None:
-        raise KeyError("Checkpoint does not contain 'config' or 'args'; cannot infer settings.")
+        raise KeyError(
+            "Checkpoint does not contain 'config' or 'args'; cannot infer settings."
+        )
 
     use_coord = cfg.get("use_coord")
     if use_coord is None:
@@ -291,9 +307,13 @@ def main(args) -> None:
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Evaluate temporal rollout error for Navier-Stokes.")
+    parser = argparse.ArgumentParser(
+        description="Evaluate temporal rollout error for Navier-Stokes."
+    )
     parser.add_argument("--ckpt-path", type=str, required=True)
-    parser.add_argument("--output-path", type=str, default="../outputs/ns_temporal_error.pdf")
+    parser.add_argument(
+        "--output-path", type=str, default="../outputs/ns_temporal_error.png"
+    )
     parser.add_argument("--batch-size", type=int, default=4)
     parser.add_argument("--num-workers", type=int, default=2)
     parser.add_argument("--max-batches", type=int, default=None)

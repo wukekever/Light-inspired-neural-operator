@@ -1,4 +1,9 @@
 #!/bin/bash
+## Working directory: Light-inspired-neural-operator
+## Usage: bash ./scripts/run_train_airfoil2d.sh
+
+set -euo pipefail
+
 cd "$(dirname "$0")/.." && cd src
 
 PYTHON=$(command -v python3 || command -v python)

@@ -1,4 +1,4 @@
-# LiNO Project Framework Overview
+*# LiNO Project Framework Overview
 
 This repository implements a Light-inspired Neural Operator (LiNO) framework for learning solution operators of parametric partial differential equations (PDEs). The codebase is organized as a compact experimental system that prepares PDE datasets, trains neural-operator models, saves reproducible experiment artifacts, and evaluates checkpoints with visual and temporal-error analysis.
 
@@ -177,3 +177,4 @@ Experiment outputs are stored under `outputs/`. A typical training run saves:
 | `outputs/<experiment_name>/ckpts/best_model.pt` | Best validation checkpoint |
 
 Evaluation may add prediction figures, comparison plots, or temporal-error summaries. These files are generated artifacts rather than source code. The checkpoint and its saved configuration provide the metadata required for later reproduction and analysis.
+*

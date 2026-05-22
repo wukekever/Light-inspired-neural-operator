@@ -1,4 +1,7 @@
 #!/bin/bash
+# Working directory: Light-inspired-neural-operator
+# Usage: bash ./scripts/download_airfoil2d.sh
+
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
