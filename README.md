@@ -117,39 +117,37 @@ tree
 │   ├── download_navierstokes2d.sh
 │   ├── run_eval_airfoil2d.sh
 │   ├── run_eval_burgers1d.sh
+│   ├── run_eval_darcy2d_ablation.sh
 │   ├── run_eval_darcy2d.sh
 │   ├── run_eval_navierstokes2d.sh
-│   ├── run_eval_temporal_error_navierstokes2d.sh
+│   ├── run_eval_temporal_error.sh
 │   ├── run_train_airfoil2d.sh
 │   ├── run_train_burgers1d.sh
+│   ├── run_train_darcy2d_ablation.sh
 │   ├── run_train_darcy2d.sh
+│   ├── run_train_deeponet_burgers1d.sh
 │   └── run_train_navierstokes2d.sh
 └── src
     ├── datasets
     │   ├── airfoil2d.py
-    │   ├── Burgers1D
-    │   │   └── burgers_data_R10.mat
     │   ├── burgers1d.py
     │   ├── common.py
-    │   ├── Darcy2D
-    │   │   ├── piececonst_r241_N1024_smooth1.mat
-    │   │   └── piececonst_r241_N1024_smooth2.mat
     │   ├── darcy2d.py
     │   ├── data_infos.md
     │   ├── datatest.ipynb
     │   ├── __init__.py
-    │   ├── NavierStokes2D
-    │   │   └── ns_V1e-3_N5000_T50.mat
     │   └── navierstokes2d.py
+    ├── eval_darcy2d_ablation.py
     ├── eval.py
-    ├── eval_airfoil2d_metrics.py
     ├── eval_temporal_error.py
     ├── logger.py
     ├── modules
+    │   ├── deeponet.py
     │   └── model.py
     ├── run_airfoil2d.py
     ├── run_burgers1d.py
-    ├── run_darcy2d.py
+    ├── run_darcy2d_ablation.py
+    ├── run_deeponet_burgers1d.py
     ├── run_navierstokes2d.py
     └── utils.py
 ```
