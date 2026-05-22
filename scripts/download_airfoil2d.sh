@@ -10,16 +10,17 @@ OUT_DIR="${REPO_ROOT}/src/datasets/NACA"
 
 mkdir -p "${OUT_DIR}"
 
-NEEDED=(
-  "NACA_Cylinder_X.npy"
-  "NACA_Cylinder_Y.npy"
-  "NACA_Cylinder_Q.npy"
+declare -A FILE_IDS=(
+  ["NACA_Cylinder_X.npy"]="1rJUPtIhTAsG8TQnqV5mljjgQlyz0NJvJ"
+  ["NACA_Cylinder_Y.npy"]="16EY0obqsccypaDFVY0wlsXX73SlD5TMy"
+  ["NACA_Cylinder_Q.npy"]="1AjW0t0YolY680J6xTQJ_g5bqTSJAZDZc"
 )
 
 all_present=1
-for f in "${NEEDED[@]}"; do
-  if [ ! -f "${OUT_DIR}/${f}" ]; then
+for filename in "${!FILE_IDS[@]}"; do
+  if [ ! -f "${OUT_DIR}/${filename}" ]; then
     all_present=0
+    break
   fi
 done
 
@@ -29,16 +30,17 @@ if [ "${all_present}" -eq 1 ]; then
 fi
 
 cat <<'MSG'
-This script downloads the Geo-FNO NACA airfoil files into src/datasets/NACA.
-Expected files after download:
+This script downloads only the three required Geo-FNO NACA airfoil files into:
+
+  src/datasets/NACA
+
+Expected files:
   - NACA_Cylinder_X.npy
   - NACA_Cylinder_Y.npy
   - NACA_Cylinder_Q.npy
 
-The upstream dataset is hosted by the Geo-FNO authors on Google Drive.
 If automatic download fails because of Google Drive quota/permission restrictions,
-manually download the Geo-PDE datasets from the Geo-FNO repository README and place
-these three .npy files in src/datasets/NACA.
+please manually download the files and place them in src/datasets/NACA.
 MSG
 
 if ! command -v gdown >/dev/null 2>&1; then
@@ -46,27 +48,31 @@ if ! command -v gdown >/dev/null 2>&1; then
   python3 -m pip install gdown
 fi
 
-# Geo-FNO README dataset folder. gdown will download all files in the folder;
-# the script then searches for the NACA files and copies them to OUT_DIR.
-GDRIVE_FOLDER="https://drive.google.com/drive/folders/1YBuaoTdOSr_qzaow-G-iwvbUI7fiUzu8?usp=sharing"
-TMP_DIR="${OUT_DIR}/.download_tmp"
-mkdir -p "${TMP_DIR}"
+download_file() {
+  local filename="$1"
+  local file_id="$2"
+  local output_path="${OUT_DIR}/${filename}"
+  local url="https://drive.google.com/uc?id=${file_id}"
 
-echo "Downloading Geo-PDE data folder to temporary directory..."
-python -m gdown --folder "${GDRIVE_FOLDER}" -O "${TMP_DIR}" || {
-  echo "Automatic download failed. Please download manually from the Geo-FNO README dataset link."
-  exit 1
-}
+  if [ -f "${output_path}" ]; then
+    echo "Found existing file: ${output_path}"
+    return 0
+  fi
 
-for f in "${NEEDED[@]}"; do
-  match="$(find "${TMP_DIR}" -name "${f}" -type f | head -n 1 || true)"
-  if [ -z "${match}" ]; then
-    echo "Could not find ${f} in downloaded folder. Please place it manually in ${OUT_DIR}."
+  echo "Downloading ${filename}..."
+  python3 -m gdown "${url}" -O "${output_path}"
+
+  if [ ! -s "${output_path}" ]; then
+    echo "Failed to download ${filename}, or downloaded file is empty."
+    rm -f "${output_path}"
     exit 1
   fi
-  cp "${match}" "${OUT_DIR}/${f}"
-  echo "Installed ${OUT_DIR}/${f}"
-done
 
-rm -rf "${TMP_DIR}"
+  echo "Installed ${output_path}"
+}
+
+download_file "NACA_Cylinder_X.npy" "${FILE_IDS[NACA_Cylinder_X.npy]}"
+download_file "NACA_Cylinder_Y.npy" "${FILE_IDS[NACA_Cylinder_Y.npy]}"
+download_file "NACA_Cylinder_Q.npy" "${FILE_IDS[NACA_Cylinder_Q.npy]}"
+
 echo "Airfoil dataset is ready under: ${OUT_DIR}"
