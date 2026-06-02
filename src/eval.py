@@ -6,6 +6,7 @@ from datetime import datetime
 
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
+import matplotlib.gridspec as gridspec
 import torch
 
 from datasets import (
@@ -448,30 +449,67 @@ def main(args) -> None:
         sol_max = max(target_field.max().item(), pred_field.max().item())
         err_abs = torch.abs(err_field).max().item()
 
-        fig, axes = plt.subplots(1, 4, figsize=(18.0, 4.0), constrained_layout=True)
-
-        # (a) Input geometry / mesh.
-        plot_airfoil_geometry_panel(axes[0], mesh_x, mesh_y)
-        axes[0].text(
-            -0.12,
-            1.08,
-            "(a)",
-            transform=axes[0].transAxes,
-            fontsize=11,
-            fontweight="bold",
+        # Fixed 2 x 5 layout:
+        #   col 0: left main panel,  col 1: left colorbar slot
+        #   col 2: spacer,           col 3: right main panel
+        #   col 4: right colorbar slot
+        # Panel (a) has an empty colorbar slot so all four main axes align.
+        # The spacer column prevents the left colorbar tick labels from
+        # overlapping with the y-axis ticks of the right panel.
+        fig = plt.figure(figsize=(12.2, 7.2))
+        gs = gridspec.GridSpec(
+            2,
+            5,
+            figure=fig,
+            width_ratios=[1.0, 0.035, 0.16, 1.0, 0.035],
+            height_ratios=[1.0, 1.0],
+            wspace=0.04,
+            hspace=0.34,
         )
 
-        panels = [
-            (target_field, "Ground truth", sol_min, sol_max),
-            (pred_field, "Prediction", sol_min, sol_max),
-            (err_field, "Pointwise error", -err_abs, err_abs),
-        ]
-        panel_labels = ["(b)", "(c)", "(d)"]
+        ax_a = fig.add_subplot(gs[0, 0])
+        cax_a = fig.add_subplot(gs[0, 1])  # dummy colorbar slot for alignment
+        ax_b = fig.add_subplot(gs[0, 3])
+        cax_b = fig.add_subplot(gs[0, 4])
+        ax_c = fig.add_subplot(gs[1, 0])
+        cax_c = fig.add_subplot(gs[1, 1])
+        ax_d = fig.add_subplot(gs[1, 3])
+        cax_d = fig.add_subplot(gs[1, 4])
 
-        for ax, (field, title, vmin, vmax), panel_label in zip(
-            axes[1:], panels, panel_labels
+        def _style_airfoil_axes(ax, title, panel_label):
+            ax.set_title(title, pad=6)
+            ax.set_xlim(*AIRFOIL_XLIM)
+            ax.set_ylim(*AIRFOIL_YLIM)
+            ax.set_aspect("equal", adjustable="box")
+            ax.tick_params(labelsize=8, width=0.6, length=2)
+            for spine in ax.spines.values():
+                spine.set_linewidth(0.8)
+            ax.text(
+                -0.12,
+                1.05,
+                panel_label,
+                transform=ax.transAxes,
+                fontsize=11,
+                fontweight="bold",
+            )
+
+        # (a) Input geometry / mesh
+        plot_airfoil_geometry_panel(ax_a, mesh_x, mesh_y)
+        _style_airfoil_axes(ax_a, "Input geometry / mesh", "(a)")
+        ax_a.set_xlabel(r"$x$")
+        ax_a.set_ylabel(r"$y$")
+        cax_a.axis("off")
+
+        def _plot_airfoil_field(
+            ax,
+            cax,
+            field,
+            title,
+            panel_label,
+            vmin,
+            vmax,
+            scientific=False,
         ):
-            # pcolormesh respects the curvilinear airfoil mesh; fall back to imshow if needed.
             try:
                 im = ax.pcolormesh(
                     mesh_x.numpy(),
@@ -482,7 +520,6 @@ def main(args) -> None:
                     vmin=vmin,
                     vmax=vmax,
                 )
-                ax.set_aspect("equal", adjustable="box")
             except Exception:
                 im = ax.imshow(
                     field.numpy(),
@@ -490,9 +527,16 @@ def main(args) -> None:
                     cmap="viridis",
                     vmin=vmin,
                     vmax=vmax,
+                    extent=[
+                        AIRFOIL_XLIM[0],
+                        AIRFOIL_XLIM[1],
+                        AIRFOIL_YLIM[0],
+                        AIRFOIL_YLIM[1],
+                    ],
                     aspect="auto",
                 )
-            # Zoom into the airfoil neighborhood so the body and shocks are visible.
+
+            # Draw the airfoil boundary if available.
             try:
                 ax.plot(
                     mesh_x[:, 0].numpy(),
@@ -502,36 +546,59 @@ def main(args) -> None:
                 )
             except Exception:
                 pass
-            ax.set_title(title, pad=6)
-            ax.set_xlim(*AIRFOIL_XLIM)
-            ax.set_ylim(*AIRFOIL_YLIM)
-            ax.set_aspect("equal", adjustable="box")
-            ax.tick_params(labelsize=8, width=0.6, length=2)
-            for spine in ax.spines.values():
-                spine.set_linewidth(0.8)
-            ax.text(
-                -0.12,
-                1.08,
-                panel_label,
-                transform=ax.transAxes,
-                fontsize=11,
-                fontweight="bold",
-            )
-            # cbar = fig.colorbar(im, ax=ax, fraction=0.046, pad=0.03)
-            cbar = fig.colorbar(im, ax=ax, fraction=0.046, pad=0.03, shrink=0.5)
-            cbar.ax.tick_params(labelsize=8, width=0.6, length=2)
-            if title == "Pointwise error":
+
+            _style_airfoil_axes(ax, title, panel_label)
+
+            cbar = fig.colorbar(im, cax=cax)
+            cbar.ax.tick_params(labelsize=7, width=0.6, length=2, pad=2)
+
+            if scientific:
                 formatter = ticker.ScalarFormatter(useMathText=True)
                 formatter.set_scientific(True)
                 formatter.set_powerlimits((0, 0))
                 cbar.formatter = formatter
                 cbar.update_ticks()
 
-        # fig.suptitle(
-        #     rf"Airfoil Mach field, relative $L^2$ error = {rel_err:.3e}",
-        #     y=1.03,
-        #     fontsize=12,
-        # )
+        # (b) Pointwise error
+        _plot_airfoil_field(
+            ax_b,
+            cax_b,
+            err_field,
+            "Pointwise error",
+            "(b)",
+            -err_abs,
+            err_abs,
+            scientific=True,
+        )
+
+        # (c) Ground truth
+        _plot_airfoil_field(
+            ax_c,
+            cax_c,
+            target_field,
+            "Ground truth",
+            "(c)",
+            sol_min,
+            sol_max,
+            scientific=False,
+        )
+        ax_c.set_xlabel(r"$x$")
+        ax_c.set_ylabel(r"$y$")
+
+        # (d) Prediction
+        _plot_airfoil_field(
+            ax_d,
+            cax_d,
+            pred_field,
+            "Prediction",
+            "(d)",
+            sol_min,
+            sol_max,
+            scientific=False,
+        )
+        ax_d.set_xlabel(r"$x$")
+
+        plt.subplots_adjust(left=0.06, right=0.97, top=0.93, bottom=0.08)
 
     else:  # NavierStokes2D
         t_in = int(cfg["t_in"])

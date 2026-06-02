@@ -21,7 +21,7 @@
 
 ![](assets/framework.png)
 
-#### **Title:** Let There Be Light: Reflection, Refraction and Scattering for PDE Neural Operators
+#### **Title:** Let There Be Light: Reflection, Refraction and Scattering for Neural Operators
 
 #### **Authors:** Keke Wu, Yixuan Zhang and Jingrun Chen
 `TODO: Update the arXiv link`
@@ -102,11 +102,9 @@ tree
 │   ├── transparent-lino-logo.png
 │   ├── transparent-pku-logo.png
 │   └── transparent-ustc-logo.png
-├── doc
-│   ├── main.tex
-│   └── overview.md
 ├── LICENSE
 ├── make_title.py
+├── outputs
 ├── pyproject.toml
 ├── README.md
 ├── requirements.txt
@@ -123,31 +121,37 @@ tree
 │   ├── run_eval_temporal_error.sh
 │   ├── run_train_airfoil2d.sh
 │   ├── run_train_burgers1d.sh
-│   ├── run_train_darcy2d_ablation.sh
 │   ├── run_train_darcy2d.sh
-│   ├── run_train_deeponet_burgers1d.sh
 │   └── run_train_navierstokes2d.sh
 └── src
     ├── datasets
     │   ├── airfoil2d.py
+    │   ├── Burgers1D
+    │   │   └── burgers_data_R10.mat
     │   ├── burgers1d.py
     │   ├── common.py
+    │   ├── Darcy2D
+    │   │   ├── piececonst_r241_N1024_smooth1.mat
+    │   │   └── piececonst_r241_N1024_smooth2.mat
     │   ├── darcy2d.py
-    │   ├── data_infos.md
-    │   ├── datatest.ipynb
     │   ├── __init__.py
+    │   ├── NACA
+    │   │   ├── NACA_Cylinder_Q.npy
+    │   │   ├── NACA_Cylinder_X.npy
+    │   │   └── NACA_Cylinder_Y.npy
+    │   ├── NavierStokes2D
+    │   │   └── ns_V1e-3_N5000_T50.mat
     │   └── navierstokes2d.py
     ├── eval_darcy2d_ablation.py
     ├── eval.py
     ├── eval_temporal_error.py
     ├── logger.py
     ├── modules
-    │   ├── deeponet.py
     │   └── model.py
     ├── run_airfoil2d.py
     ├── run_burgers1d.py
-    ├── run_darcy2d_ablation.py
-    ├── run_deeponet_burgers1d.py
+    ├── run_darcy2d.py
+    ├── run_darcy2d_ablation.py    
     ├── run_navierstokes2d.py
     └── utils.py
 ```
@@ -168,12 +172,15 @@ If you find this work useful, please cite:
 `TODO: Update the citation after the information is available`
 ```bibtex
 @article{wu2026light,
-    title={Let There Be Light: Reflection, Refraction and Scattering for PDE Neural Operators},
+    title={Let There Be Light: Reflection, Refraction and Scattering for Neural Operators},
     author={Keke Wu, Yixuan Zhang and Jingrun Chen},
-    year={2026},
-    eprint={},
-    archivePrefix={arXiv},
-    url={},
+    journal       = {arXiv preprint arXiv:2111.02541},
+    year          = {2026},
+    eprint        = {2111.02541},
+    archivePrefix = {arXiv},
+    primaryClass  = {math.NA},
+    url           = {https://arxiv.org/abs/2111.02541}
 }
+
 ```
 

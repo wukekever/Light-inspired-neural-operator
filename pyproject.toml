@@ -3,11 +3,12 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.backends.legacy:build"
 
 [project]
-name = "light-neural-operator"
+name = "light-inspired-neural-operator"
 version = "0.1.0"
-description = "Let There Be Light: Reflection, Refraction and Scattering for PDE Neural Operators"
+description = "Let There Be Light: Reflection, Refraction and Scattering for Neural Operators"
 authors = [
     { name = "Keke Wu" },
+    { name = "Yixuan Zhang" },
     { name = "Jingrun Chen" },
 ]
 readme = "README.md"
@@ -21,6 +22,7 @@ dependencies = [
     "matplotlib>=3.7.0",
     "termcolor>=2.3.0",
     "Pillow>=9.5.0",
+    "gdown>=5.1.0",
 ]
 
 [project.optional-dependencies]

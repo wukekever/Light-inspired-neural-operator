@@ -9,7 +9,7 @@ CKPT_PATH="../outputs/${LNO_PATH}/ckpts/best_model.pt"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "${SCRIPT_DIR}/../src" || exit 1
 
-INDEX_LIST=($(seq 0 4)) # Generate a list of indices from 0 to 4
+INDEX_LIST=($(seq 2 4)) # Generate a list of indices from 2 to 4
 for INDEX in "${INDEX_LIST[@]}"; do
   IMAGE_PATH="../outputs/${LNO_PATH}/evaluation_results_${INDEX}.png"
   python eval.py --ckpt-path "$CKPT_PATH" --index "$INDEX" --output-path "$IMAGE_PATH"
