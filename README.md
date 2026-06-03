@@ -101,6 +101,10 @@ tree
 │   ├── transparent-lino-logo.png
 │   ├── transparent-pku-logo.png
 │   └── transparent-ustc-logo.png
+├── doc
+│   ├── main.tex
+│   ├── overview.md
+│   └── references.bib
 ├── LICENSE
 ├── make_title.py
 ├── outputs
