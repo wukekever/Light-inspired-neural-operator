@@ -24,9 +24,8 @@
 #### **Title:** Let There Be Light: Reflection, Refraction and Scattering for Neural Operators
 
 #### **Authors:** Keke Wu, Yixuan Zhang and Jingrun Chen
-`TODO: Update the arXiv link`
  
-[![ArXiv](https://img.shields.io/badge/arXiv-Paper-b31b1b?logo=arxiv&logoColor=white)](https://arxiv.org/abs/2111.02541) 
+[![ArXiv](https://img.shields.io/badge/arXiv-Paper-b31b1b?logo=arxiv&logoColor=white)](https://arxiv.org/abs/2606.03262) 
 
 [**Overview**](#-overview) | [**Installation**](#-installation) | [**Datasets**](#-datasets) | [**Project Architecture**](#-project-architecture) | [**Training and Evaluation**](#-training-and-evaluation) |
 [**Citation**](#-citation)
@@ -169,17 +168,16 @@ bash ./scripts/run_eval_darcy2d.sh
 
 If you find this work useful, please cite:
 
-`TODO: Update the citation after the information is available`
 ```bibtex
 @article{wu2026light,
     title={Let There Be Light: Reflection, Refraction and Scattering for Neural Operators},
     author={Keke Wu, Yixuan Zhang and Jingrun Chen},
-    journal       = {arXiv preprint arXiv:2111.02541},
+    journal       = {arXiv preprint arXiv:2606.03262},
     year          = {2026},
-    eprint        = {2111.02541},
+    eprint        = {2606.03262},
     archivePrefix = {arXiv},
     primaryClass  = {math.NA},
-    url           = {https://arxiv.org/abs/2111.02541}
+    url           = {https://arxiv.org/abs/2606.03262}
 }
 
 ```
