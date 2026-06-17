@@ -172,15 +172,11 @@ bash ./scripts/run_eval_darcy2d.sh
 If you find this work useful, please cite:
 
 ```bibtex
-@article{wu2026light,
-    title={Let There Be Light: Reflection, Refraction and Scattering for Neural Operators},
-    author={Keke Wu, Yixuan Zhang and Jingrun Chen},
-    journal       = {arXiv preprint arXiv:2606.03262},
-    year          = {2026},
-    eprint        = {2606.03262},
-    archivePrefix = {arXiv},
-    primaryClass  = {math.NA},
-    url           = {https://arxiv.org/abs/2606.03262}
+@article{wu2026let,
+  title={Let There Be Light: Reflection, Refraction and Scattering for Neural Operators},
+  author={Wu, Keke and Zhang, Yixuan and Chen, Jingrun},
+  journal={arXiv preprint arXiv:2606.03262},
+  year={2026}
 }
 
 ```
