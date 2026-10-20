@@ -71,7 +71,13 @@ def get_parser():
         # default="standard",
         choices=["efficient", "standard"],
     )  # scattering type for the light-inspired layers, "efficient" uses the optimized implementation, while "standard" uses the original scattering transform
-
+    # parser.add_argument(
+    #     "--light-components",
+    #     type=str,
+    #     nargs="+",
+    #     default=["reflection", "refraction", "scattering"],
+    #     choices=["reflection", "refraction", "scattering", "r", "t", "s"],
+    # )  # enabled light-evolution branches; useful for Darcy ablation experiments
     parser.add_argument("--epochs", type=int, default=500)
     parser.add_argument("--lr", type=float, default=1e-3)
     parser.add_argument(
@@ -170,7 +176,7 @@ def save_checkpoint(
     )
 
 
-def validate(model, loader, mse_loss_fn, rel_loss_fn, device):
+def validate(model, loader, mse_loss_fn, rel_loss_fn, y_normalizer, device):
     model.eval()
 
     loss_meter = Monitor()
@@ -188,10 +194,15 @@ def validate(model, loader, mse_loss_fn, rel_loss_fn, device):
             rel_loss = rel_loss_fn(pred, y)
             loss = 1.0 * mse_loss + 1.0 * rel_loss
 
+            # Compute the reported validation error in the original physical space.
+            pred_phys = y_normalizer.decode(pred)
+            y_phys = y_normalizer.decode(y)
+            rel_loss_phys = rel_loss_fn(pred_phys, y_phys)
+
             batch_size = x.shape[0]
             loss_meter.update(loss.item(), batch_size)
             mse_meter.update(mse_loss.item(), batch_size)
-            rel_meter.update(rel_loss.item(), batch_size)
+            rel_meter.update(rel_loss_phys.item(), batch_size)
 
     return {
         "loss": loss_meter.avg,
@@ -310,6 +321,7 @@ def main():
             loader=val_loader,
             mse_loss_fn=mse_loss_fn,
             rel_loss_fn=rel_loss_fn,
+            y_normalizer=split.y_normalizer,
             device=device,
         )
 

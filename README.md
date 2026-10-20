@@ -101,9 +101,6 @@ tree
 │   ├── transparent-lino-logo.png
 │   ├── transparent-pku-logo.png
 │   └── transparent-ustc-logo.png
-├── doc
-│   ├── main.tex
-│   └── references.bib
 ├── LICENSE
 ├── make_title.py
 ├── outputs
@@ -117,10 +114,8 @@ tree
 │   ├── download_navierstokes2d.sh
 │   ├── run_eval_airfoil2d.sh
 │   ├── run_eval_burgers1d.sh
-│   ├── run_eval_darcy2d_ablation.sh
 │   ├── run_eval_darcy2d.sh
 │   ├── run_eval_navierstokes2d.sh
-│   ├── run_eval_temporal_error.sh
 │   ├── run_train_airfoil2d.sh
 │   ├── run_train_burgers1d.sh
 │   ├── run_train_darcy2d.sh
@@ -144,16 +139,13 @@ tree
     │   ├── NavierStokes2D
     │   │   └── ns_V1e-3_N5000_T50.mat
     │   └── navierstokes2d.py
-    ├── eval_darcy2d_ablation.py
     ├── eval.py
-    ├── eval_temporal_error.py
     ├── logger.py
     ├── modules
     │   └── model.py
     ├── run_airfoil2d.py
     ├── run_burgers1d.py
     ├── run_darcy2d.py
-    ├── run_darcy2d_ablation.py    
     ├── run_navierstokes2d.py
     └── utils.py
 ```

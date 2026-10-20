@@ -210,7 +210,7 @@ def _rollout_autoregressive(model, x, y, rel_loss_fn, step, t_in, use_coord):
     return loss, step_rel_meter.avg, full_rel, pred_full
 
 
-def validate(model, loader, mse_loss_fn, rel_loss_fn, device, args):
+def validate(model, loader, mse_loss_fn, rel_loss_fn, y_normalizer, device, args):
     model.eval()
 
     loss_meter = Monitor()
@@ -223,7 +223,7 @@ def validate(model, loader, mse_loss_fn, rel_loss_fn, device, args):
             x = x.to(device, non_blocking=True)
             y = y.to(device, non_blocking=True)
 
-            ar_loss, step_rel, full_rel, pred = _rollout_autoregressive(
+            ar_loss, _, _, pred = _rollout_autoregressive(
                 model=model,
                 x=x,
                 y=y,
@@ -232,14 +232,30 @@ def validate(model, loader, mse_loss_fn, rel_loss_fn, device, args):
                 t_in=args.t_in,
                 use_coord=not args.no_coord,
             )
+            # Keep the validation objective in normalized space, matching training.
             mse_loss = mse_loss_fn(pred, y)
             loss = 1.0 * mse_loss + 1.0 * ar_loss
+
+            # Report rollout and step-wise relative L2 in physical space.
+            pred_phys = y_normalizer.decode(pred)
+            y_phys = y_normalizer.decode(y)
+            full_rel_phys = rel_loss_fn(pred_phys, y_phys)
+
+            step_rel_phys = 0.0
+            num_steps = 0
+            for t in range(0, y.shape[-1], args.step):
+                step_rel_phys += rel_loss_fn(
+                    pred_phys[..., t : t + args.step],
+                    y_phys[..., t : t + args.step],
+                ).item()
+                num_steps += 1
+            step_rel_phys /= max(num_steps, 1)
 
             batch_size = x.shape[0]
             loss_meter.update(loss.item(), batch_size)
             mse_meter.update(mse_loss.item(), batch_size)
-            rel_meter.update(full_rel.item(), batch_size)
-            rel_step_meter.update(step_rel, batch_size)
+            rel_meter.update(full_rel_phys.item(), batch_size)
+            rel_step_meter.update(step_rel_phys, batch_size)
 
     return {
         "loss": loss_meter.avg,
@@ -383,6 +399,7 @@ def main():
             loader=val_loader,
             mse_loss_fn=mse_loss_fn,
             rel_loss_fn=rel_loss_fn,
+            y_normalizer=split.y_normalizer,
             device=device,
             args=args,
         )

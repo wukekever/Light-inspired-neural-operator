@@ -170,7 +170,7 @@ def save_checkpoint(
     )
 
 
-def validate(model, loader, mse_loss_fn, rel_loss_fn, device):
+def validate(model, loader, mse_loss_fn, rel_loss_fn, y_normalizer, device):
     model.eval()
 
     loss_meter = Monitor()
@@ -186,12 +186,17 @@ def validate(model, loader, mse_loss_fn, rel_loss_fn, device):
 
             mse_loss = mse_loss_fn(pred, y)
             rel_loss = rel_loss_fn(pred, y)
-            loss = mse_loss + 0.1 * rel_loss
+            loss = mse_loss + 1.0 * rel_loss
+
+            # Report relative L2 in physical space.
+            pred_phys = y_normalizer.decode(pred)
+            y_phys = y_normalizer.decode(y)
+            rel_loss_phys = rel_loss_fn(pred_phys, y_phys)
 
             batch_size = x.shape[0]
             loss_meter.update(loss.item(), batch_size)
             mse_meter.update(mse_loss.item(), batch_size)
-            rel_meter.update(rel_loss.item(), batch_size)
+            rel_meter.update(rel_loss_phys.item(), batch_size)
 
     return {
         "loss": loss_meter.avg,
@@ -310,6 +315,7 @@ def main():
             loader=val_loader,
             mse_loss_fn=mse_loss_fn,
             rel_loss_fn=rel_loss_fn,
+            y_normalizer=split.y_normalizer,
             device=device,
         )
 
